@@ -7,6 +7,8 @@ import (
 	"net/http"
 )
 
+const LocationHeader = "Location"
+
 type Handler struct {
 	URLShortener service.URLShortener
 }
@@ -14,11 +16,11 @@ type Handler struct {
 func (h *Handler) CreateShortURL(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(res, "Couldn't read the body of request!", http.StatusBadRequest)
+		http.Error(res, "Couldn't read the targetFullURL of request!", http.StatusBadRequest)
 		return
 	}
 
-	shortURL, err := h.URLShortener.Shorten(string(body))
+	shortURL, err := h.URLShortener.CreateShortURL(string(body))
 
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -35,7 +37,7 @@ func (h *Handler) GetFullURL(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusNotFound)
 	}
-	res.Header().Set("Location", fullURL)
+	res.Header().Set(LocationHeader, fullURL)
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 

@@ -7,15 +7,15 @@ import (
 )
 
 type URLShortener interface {
-	Shorten(fullURL string) (string, error)
-	FindFullURL(shortURL string) (string, error)
+	CreateShortURL(fullURL string) (string, error)
+	FindFullURL(hashURL string) (string, error)
 }
 
 type URLShortenerService struct {
 	storage storage.Storage
 }
 
-func (s *URLShortenerService) Shorten(fullURL string) (string, error) {
+func (s *URLShortenerService) CreateShortURL(fullURL string) (string, error) {
 	urlHash, err := s.createHashForURL(fullURL)
 	if err != nil {
 		return "", err
