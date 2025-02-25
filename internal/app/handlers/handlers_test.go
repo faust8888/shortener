@@ -1,16 +1,19 @@
 package handlers
 
 import (
-	"bytes"
+	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
-	"io"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 )
 
 func TestCreateShortURL(t *testing.T) {
-	h := CreateInMemoryHandler()
+	server := startTestServer()
+	defer server.Close()
+
 	type want struct {
 		code           int
 		responseRegexp string
@@ -19,12 +22,12 @@ func TestCreateShortURL(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		body string
+		url  string
 		want want
 	}{
 		{
 			name: "Short URL successfully created for https://yandex.ru",
-			body: "https://yandex.ru",
+			url:  "https://yandex.ru",
 			want: want{
 				code:           http.StatusCreated,
 				responseRegexp: `^https?://localhost:\d+/[\w/]+$`,
@@ -32,7 +35,7 @@ func TestCreateShortURL(t *testing.T) {
 		},
 		{
 			name: "Short URL successfully created for URL with full path",
-			body: "https://yandex.ru/path/fullPath",
+			url:  "https://yandex.ru/path/fullPath",
 			want: want{
 				code:           http.StatusCreated,
 				responseRegexp: `^https?://localhost:\d+/[\w/]+$`,
@@ -40,7 +43,7 @@ func TestCreateShortURL(t *testing.T) {
 		},
 		{
 			name: "Short URL wasn't created for invalid url",
-			body: "invalid_ru",
+			url:  "invalid_ru",
 			want: want{
 				code:         http.StatusBadRequest,
 				isError:      true,
@@ -50,21 +53,24 @@ func TestCreateShortURL(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			body, statusCode := createShortURL(h, test.body)
+			resp, err := createShortURLRequest(server.URL, test.url).Send()
 
-			assert.Equal(t, test.want.code, statusCode)
+			require.NoError(t, err)
+			assert.Equal(t, test.want.code, resp.StatusCode())
 
 			if !test.want.isError {
-				assert.Regexp(t, test.want.responseRegexp, body)
+				assert.Regexp(t, test.want.responseRegexp, string(resp.Body()))
 			} else {
-				assert.Equal(t, test.want.errorMessage, body)
+				assert.Equal(t, test.want.errorMessage, string(resp.Body()))
 			}
 		})
 	}
 }
 
 func TestGetFullURL(t *testing.T) {
-	h := CreateInMemoryHandler()
+	server := startTestServer()
+	defer server.Close()
+
 	type want struct {
 		code         int
 		isError      bool
@@ -85,35 +91,34 @@ func TestGetFullURL(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			shortURL, _ := createShortURL(h, test.targetFullURL)
+			shortURLResponse, _ := createShortURLRequest(server.URL, test.targetFullURL).Send()
 
-			returnedFullURL, statusCode := getFullURL(h, shortURL)
+			getFullURLRequest := resty.New().SetRedirectPolicy(resty.NoRedirectPolicy()).R()
+			getFullURLRequest.Method = http.MethodGet
+			getFullURLRequest.URL = server.URL + extractHashKeyURLFrom(string(shortURLResponse.Body()))
 
-			assert.Equal(t, test.want.code, statusCode)
-			assert.Equal(t, test.targetFullURL, returnedFullURL)
+			getFullURLResponse, _ := getFullURLRequest.Send()
+
+			assert.Equal(t, test.want.code, getFullURLResponse.StatusCode())
+			assert.Equal(t, test.targetFullURL, getFullURLResponse.Header().Get("Location"))
 		})
 	}
 }
 
-func createShortURL(handler *Handler, targetURL string) (string, int) {
-	request := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(targetURL))
-	w := httptest.NewRecorder()
-
-	handler.CreateShortURL(w, request)
-
-	res := w.Result()
-	defer res.Body.Close()
-	responseBody, _ := io.ReadAll(res.Body)
-	return string(responseBody), res.StatusCode
+func startTestServer() *httptest.Server {
+	router := CreateRouter(CreateInMemoryHandler())
+	return httptest.NewServer(router)
 }
 
-func getFullURL(handler *Handler, shortURL string) (string, int) {
-	req := httptest.NewRequest(http.MethodGet, string(shortURL), nil)
-	w := httptest.NewRecorder()
+func createShortURLRequest(url, body string) *resty.Request {
+	req := resty.New().R()
+	req.Method = http.MethodPost
+	req.URL = url
+	req.Body = body
+	return req
+}
 
-	handler.GetFullURL(w, req)
-
-	res := w.Result()
-	defer res.Body.Close()
-	return res.Header.Get(LocationHeader), res.StatusCode
+func extractHashKeyURLFrom(shortURL string) string {
+	parsedURL, _ := url.Parse(shortURL)
+	return parsedURL.Path
 }

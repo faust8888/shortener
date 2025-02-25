@@ -6,13 +6,6 @@ import (
 	"net/url"
 )
 
-func ExtractHashURLFromPath(path string) string {
-	if len(path) > 0 && path[0] == '/' {
-		return path[1:]
-	}
-	return ""
-}
-
 func IsInvalidURL(fullURL string) bool {
 	parsedURL, err := url.Parse(fullURL)
 	if err != nil {

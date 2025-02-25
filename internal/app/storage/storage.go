@@ -4,19 +4,19 @@ import "fmt"
 
 type Storage interface {
 	Save(urlHash string, fullURL string)
-	FindByHashURL(shortURL string) (string, error)
+	FindByHashURL(hashURL string) (string, error)
 }
 
 type InMemoryStorage struct {
 	mapStorage map[string]string
 }
 
-func (b *InMemoryStorage) Save(urlHash string, fullURL string) {
-	b.mapStorage[urlHash] = fullURL
+func (s *InMemoryStorage) Save(urlHash string, fullURL string) {
+	s.mapStorage[urlHash] = fullURL
 }
 
-func (b *InMemoryStorage) FindByHashURL(hashURL string) (string, error) {
-	if fullURL, exists := b.mapStorage[hashURL]; exists {
+func (s *InMemoryStorage) FindByHashURL(hashURL string) (string, error) {
+	if fullURL, exists := s.mapStorage[hashURL]; exists {
 		return fullURL, nil
 	}
 	return "", fmt.Errorf("short url not found for %s", hashURL)
