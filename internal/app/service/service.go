@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/faust8888/shortener/cmd/config"
 	"github.com/faust8888/shortener/internal/app/storage"
 	"github.com/faust8888/shortener/internal/app/util"
 )
@@ -21,7 +22,7 @@ func (s *URLShortenerService) CreateShortURL(fullURL string) (string, error) {
 		return "", err
 	}
 	s.storage.Save(urlHash, fullURL)
-	return fmt.Sprintf("http://localhost:8080/%s", urlHash), nil
+	return fmt.Sprintf("%s/%s", config.Config.BaseShortURL, urlHash), nil
 }
 
 func (s *URLShortenerService) FindFullURL(hashURL string) (string, error) {

@@ -100,7 +100,7 @@ func TestGetFullURL(t *testing.T) {
 			getFullURLResponse, _ := getFullURLRequest.Send()
 
 			assert.Equal(t, test.want.code, getFullURLResponse.StatusCode())
-			assert.Equal(t, test.targetFullURL, getFullURLResponse.Header().Get("Location"))
+			assert.Equal(t, test.targetFullURL, getFullURLResponse.Header().Get(LocationHeader))
 		})
 	}
 }

@@ -2,11 +2,10 @@ package handlers
 
 import (
 	"github.com/faust8888/shortener/internal/app/service"
-	"io"
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"io"
+	"net/http"
 )
 
 const (
@@ -38,10 +37,12 @@ func (h *Handler) CreateShortURL(res http.ResponseWriter, req *http.Request) {
 
 func (h *Handler) GetFullURL(res http.ResponseWriter, req *http.Request) {
 	searchedHashURL := chi.URLParam(req, HashKeyURLQueryParam)
+
 	fullURL, err := h.URLShortener.FindFullURL(searchedHashURL)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusNotFound)
 	}
+
 	res.Header().Set(LocationHeader, fullURL)
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
