@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/faust8888/shortener/cmd/config"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,7 +83,7 @@ func TestGetFullURL(t *testing.T) {
 		want          want
 	}{
 		{
-			name:          "Successfully get the full url by the shorten url",
+			name:          "Successfully get the full url by the short url",
 			targetFullURL: "https://yandex.ru",
 			want: want{
 				code: http.StatusTemporaryRedirect,
@@ -106,6 +107,7 @@ func TestGetFullURL(t *testing.T) {
 }
 
 func startTestServer() *httptest.Server {
+	config.LoadConfig()
 	router := CreateRouter(CreateInMemoryHandler())
 	return httptest.NewServer(router)
 }

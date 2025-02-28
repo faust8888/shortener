@@ -2,12 +2,10 @@ package service
 
 import (
 	"flag"
-	"fmt"
 	"github.com/faust8888/shortener/cmd/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 )
@@ -64,9 +62,7 @@ func TestCouldNotFindFullURL(t *testing.T) {
 func TestCreateShortURLWithCustomBaseURLFlag(t *testing.T) {
 	baseShortURLFlagValue := "http://custom_base_short_url:9099"
 
-	os.Args = append([]string{}, []string{fmt.Sprintf("-%s=%s", config.BaseShortURLFlag, baseShortURLFlagValue)}...)
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	flag.StringVar(&config.Config.BaseShortURL, config.BaseShortURLFlag, baseShortURLFlagValue, "Base short URL")
+	flag.StringVar(&config.Cfg.BaseShortURL, config.BaseShortURLFlag, baseShortURLFlagValue, "Base short URL")
 	flag.Parse()
 
 	shortURL, err := NewInMemoryShortenerService().CreateShortURL(TestURL)

@@ -22,14 +22,16 @@ func (s *URLShortenerService) CreateShortURL(fullURL string) (string, error) {
 		return "", err
 	}
 	s.storage.Save(urlHash, fullURL)
-	return fmt.Sprintf("%s/%s", config.Config.BaseShortURL, urlHash), nil
+	shortURL := fmt.Sprintf("%s/%s", config.Cfg.BaseShortURL, urlHash)
+
+	return shortURL, nil
 }
 
 func (s *URLShortenerService) FindFullURL(hashURL string) (string, error) {
 	return s.storage.FindByHashURL(hashURL)
 }
 
-func NewInMemoryShortenerService() URLShortener {
+func NewInMemoryShortenerService() *URLShortenerService {
 	return &URLShortenerService{storage: storage.NewInMemoryStorage()}
 }
 

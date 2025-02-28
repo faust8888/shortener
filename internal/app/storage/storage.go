@@ -22,6 +22,7 @@ func (s *InMemoryStorage) FindByHashURL(hashURL string) (string, error) {
 	return "", fmt.Errorf("short url not found for %s", hashURL)
 }
 
-func NewInMemoryStorage() Storage {
+func NewInMemoryStorage() *InMemoryStorage {
+	fmt.Println("Creating in memory storage")
 	return &InMemoryStorage{mapStorage: make(map[string]string)}
 }
