@@ -35,7 +35,6 @@ func (h *Handler) CreateShortURL(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	fmt.Printf("created: '%s' -> '%s'\n", fullURL, shortURL)
-
 	res.WriteHeader(http.StatusCreated)
 	_, err = res.Write([]byte(shortURL))
 	if err != nil {
