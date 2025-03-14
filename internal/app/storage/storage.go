@@ -1,6 +1,9 @@
 package storage
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/faust8888/shortener/internal/app/logger"
+)
 
 type Storage interface {
 	Save(urlHash string, fullURL string)
@@ -23,6 +26,6 @@ func (s *InMemoryStorage) FindByHashURL(hashURL string) (string, error) {
 }
 
 func NewInMemoryStorage() *InMemoryStorage {
-	fmt.Println("Creating in memory storage")
+	logger.Log.Info("Creating in memory storage")
 	return &InMemoryStorage{mapStorage: make(map[string]string)}
 }

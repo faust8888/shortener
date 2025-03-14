@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"fmt"
+	"github.com/faust8888/shortener/internal/app/logger"
 	"github.com/faust8888/shortener/internal/app/service"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 )
@@ -26,46 +26,43 @@ func (h *Handler) CreateShortURL(res http.ResponseWriter, req *http.Request) {
 	}
 
 	fullURL := string(requestBody)
-	fmt.Printf("\ncreating short URL for '%s'\n", fullURL)
 	shortURL, err := h.URLShortener.CreateShortURL(fullURL)
 
 	if err != nil {
-		fmt.Printf("couldn't create: '%s'!\n", err.Error())
+		logger.Log.Error("Failed to create short URL", zap.String("url", fullURL), zap.Error(err))
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Printf("created: '%s' -> '%s'\n", fullURL, shortURL)
+	logger.Log.Info("created short URL", zap.String("shortUrl", shortURL), zap.String("fullUrl", fullURL))
 	res.WriteHeader(http.StatusCreated)
 	_, err = res.Write([]byte(shortURL))
 	if err != nil {
-		fmt.Printf("couldn't write response: '%s'\n", err.Error())
+		logger.Log.Error("couldn't write response", zap.Error(err))
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func (h *Handler) GetFullURL(res http.ResponseWriter, req *http.Request) {
 	searchedHashURL := chi.URLParam(req, HashKeyURLQueryParam)
-	fmt.Printf("\nfinding short URL by '%s' \n", searchedHashURL)
-
+	logger.Log.Info("getting full URL", zap.String("searchedHashURL", searchedHashURL))
 	fullURL, err := h.URLShortener.FindFullURL(searchedHashURL)
 	if err != nil {
-		fmt.Printf("not found: '%s'\n", err.Error())
+		logger.Log.Error("couldn't find short URL", zap.Error(err))
 		http.Error(res, err.Error(), http.StatusNotFound)
 	}
-
-	fmt.Printf("found: '%s'\n", fullURL)
+	logger.Log.Info("found short URL", zap.String("url", fullURL))
 	res.Header().Set(LocationHeader, fullURL)
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func CreateInMemoryHandler() *Handler {
-	fmt.Println("Creating in memory handler")
+	logger.Log.Info("Creating in memory handler")
 	return &Handler{URLShortener: service.NewInMemoryShortenerService()}
 }
 
 func CreateRouter(h *Handler) *chi.Mux {
 	router := chi.NewRouter()
-	router.Use(middleware.Logger)
+	router.Use(logger.RequestLogger)
 	router.Post("/", h.CreateShortURL)
 	router.Get("/{"+HashKeyURLQueryParam+"}", h.GetFullURL)
 	return router
