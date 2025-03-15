@@ -1,8 +1,10 @@
-package handlers
+package handler
 
 import (
 	"github.com/faust8888/shortener/internal/app/logger"
+	"github.com/faust8888/shortener/internal/app/route"
 	"github.com/faust8888/shortener/internal/app/service"
+	"github.com/faust8888/shortener/internal/app/storage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"io"
@@ -10,8 +12,7 @@ import (
 )
 
 const (
-	LocationHeader       = "Location"
-	HashKeyURLQueryParam = "hashKeyURL"
+	LocationHeader = "Location"
 )
 
 type Handler struct {
@@ -43,7 +44,7 @@ func (h *Handler) CreateShortURL(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) GetFullURL(res http.ResponseWriter, req *http.Request) {
-	searchedHashURL := chi.URLParam(req, HashKeyURLQueryParam)
+	searchedHashURL := chi.URLParam(req, route.HashKeyURLQueryParam)
 	logger.Log.Info("getting full URL", zap.String("searchedHashURL", searchedHashURL))
 	fullURL, err := h.URLShortener.FindFullURL(searchedHashURL)
 	if err != nil {
@@ -55,15 +56,6 @@ func (h *Handler) GetFullURL(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func CreateInMemoryHandler() *Handler {
-	logger.Log.Info("Creating in memory handler")
-	return &Handler{URLShortener: service.NewInMemoryShortenerService()}
-}
-
-func CreateRouter(h *Handler) *chi.Mux {
-	router := chi.NewRouter()
-	router.Use(logger.RequestLogger)
-	router.Post("/", h.CreateShortURL)
-	router.Get("/{"+HashKeyURLQueryParam+"}", h.GetFullURL)
-	return router
+func Create(s storage.Storage, baseShortURL string) *Handler {
+	return &Handler{URLShortener: service.NewURLShortener(s, baseShortURL)}
 }

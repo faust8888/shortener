@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var Log *zap.Logger = zap.NewNop()
+var Log = zap.NewNop()
 
 func Initialize(level string) error {
 	loggingLevel, err := zap.ParseAtomicLevel(level)
@@ -28,7 +28,6 @@ func RequestLogger(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		wrappedWriter := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-
 		Log.Info("----> incoming HTTP request",
 			zap.String("method", r.Method),
 			zap.String("path", r.URL.Path),

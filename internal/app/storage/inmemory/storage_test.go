@@ -1,4 +1,4 @@
-package storage
+package inmemory
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -31,7 +31,7 @@ func TestInMemoryStorageFindByHashURLAndSave(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewInMemoryStorage()
+			s := NewStorage()
 
 			s.Save(tt.urlHashForSaving, tt.fullURL)
 			returnedFullURL, err := s.FindByHashURL(tt.urlHashForSearching)

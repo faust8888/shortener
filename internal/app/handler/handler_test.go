@@ -1,7 +1,9 @@
-package handlers
+package handler
 
 import (
-	"github.com/faust8888/shortener/cmd/config"
+	"github.com/faust8888/shortener/internal/app/config"
+	"github.com/faust8888/shortener/internal/app/route"
+	"github.com/faust8888/shortener/internal/app/storage/inmemory"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,9 +75,7 @@ func TestGetFullURL(t *testing.T) {
 	defer server.Close()
 
 	type want struct {
-		code         int
-		isError      bool
-		errorMessage string
+		code int
 	}
 	tests := []struct {
 		name          string
@@ -107,9 +107,9 @@ func TestGetFullURL(t *testing.T) {
 }
 
 func startTestServer() *httptest.Server {
-	config.LoadConfig()
-	router := CreateRouter(CreateInMemoryHandler())
-	return httptest.NewServer(router)
+	cfg := config.Create()
+	h := Create(inmemory.NewStorage(), cfg.BaseShortURL)
+	return httptest.NewServer(route.Create(h))
 }
 
 func createShortURLRequest(url, body string) *resty.Request {
