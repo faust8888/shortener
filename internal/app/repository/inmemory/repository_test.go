@@ -31,10 +31,10 @@ func TestInMemoryStorageFindByHashURLAndSave(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorage()
+			s := NewRepository()
 
 			s.Save(tt.urlHashForSaving, tt.fullURL)
-			returnedFullURL, err := s.FindByHashURL(tt.urlHashForSearching)
+			returnedFullURL, err := s.FindByHash(tt.urlHashForSearching)
 
 			if tt.wantErr {
 				require.Error(t, err)

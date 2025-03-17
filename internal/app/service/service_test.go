@@ -2,7 +2,7 @@ package service
 
 import (
 	"github.com/faust8888/shortener/internal/app/config"
-	"github.com/faust8888/shortener/internal/app/storage/inmemory"
+	"github.com/faust8888/shortener/internal/app/repository/inmemory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/url"
@@ -19,7 +19,7 @@ const (
 
 func TestCreatingShortURLAndFinding(t *testing.T) {
 	cfg := config.Create()
-	service := NewURLShortener(inmemory.NewStorage(), cfg.BaseShortURL)
+	service := CreateShortener(inmemory.NewRepository(), cfg.BaseShortURL)
 	tests := []struct {
 		name    string
 		fullURL string
@@ -35,12 +35,12 @@ func TestCreatingShortURLAndFinding(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			shortURL, err := service.CreateShortURL(test.fullURL)
+			shortURL, err := service.Create(test.fullURL)
 			require.NoError(t, err, CreateShortURLErrorMessage)
 			parsedURL, _ := url.Parse(shortURL)
 
 			hashURL := strings.TrimPrefix(parsedURL.Path, "/")
-			returnedFullURL, err := service.FindFullURL(hashURL)
+			returnedFullURL, err := service.Find(hashURL)
 
 			require.NoError(t, err, GetFullURLErrorMessage)
 			assert.Equal(t, test.fullURL, returnedFullURL, URLNotMatchErrorMessage)
@@ -50,11 +50,11 @@ func TestCreatingShortURLAndFinding(t *testing.T) {
 
 func TestCouldNotFindFullURL(t *testing.T) {
 	cfg := config.Create()
-	service := NewURLShortener(inmemory.NewStorage(), cfg.ServerAddress)
-	_, err := service.CreateShortURL(TestURL)
+	shortener := CreateShortener(inmemory.NewRepository(), cfg.ServerAddress)
+	_, err := shortener.Create(TestURL)
 	require.NoError(t, err, CreateShortURLErrorMessage)
 
-	fullURL, err := service.FindFullURL("not_existing_hash_key")
+	fullURL, err := shortener.Find("not_existing_hash_key")
 
 	require.Error(t, err, "Expected error when trying to find full URL")
 	require.Equal(t, "short url not found for not_existing_hash_key", err.Error())

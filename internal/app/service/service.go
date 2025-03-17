@@ -4,37 +4,32 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"github.com/faust8888/shortener/internal/app/storage"
+	"github.com/faust8888/shortener/internal/app/repository"
 	"net/url"
 )
 
-type URLShortener interface {
-	CreateShortURL(fullURL string) (string, error)
-	FindFullURL(hashURL string) (string, error)
-}
-
-type URLShortenerService struct {
-	storage      storage.Storage
+type Shortener struct {
+	repository   repository.Repository
 	baseShortURL string
 }
 
-func (s *URLShortenerService) CreateShortURL(fullURL string) (string, error) {
+func (s *Shortener) Create(fullURL string) (string, error) {
 	urlHash, err := createHashForURL(fullURL)
 	if err != nil {
 		return "", err
 	}
-	s.storage.Save(urlHash, fullURL)
+	s.repository.Save(urlHash, fullURL)
 	shortURL := fmt.Sprintf("%s/%s", s.baseShortURL, urlHash)
 
 	return shortURL, nil
 }
 
-func (s *URLShortenerService) FindFullURL(hashURL string) (string, error) {
-	return s.storage.FindByHashURL(hashURL)
+func (s *Shortener) Find(hashURL string) (string, error) {
+	return s.repository.FindByHash(hashURL)
 }
 
-func NewURLShortener(s storage.Storage, baseShortURL string) *URLShortenerService {
-	return &URLShortenerService{storage: s, baseShortURL: baseShortURL}
+func CreateShortener(s repository.Repository, baseShortURL string) *Shortener {
+	return &Shortener{repository: s, baseShortURL: baseShortURL}
 }
 
 func createHashForURL(fullURL string) (string, error) {

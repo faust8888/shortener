@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	ServerAddressFlag = "a"
-	BaseShortURLFlag  = "b"
-	LoggingLevelFlag  = "l"
+	ServerAddressFlag    = "a"
+	BaseShortURLFlag     = "b"
+	LoggingLevelFlag     = "l"
+	HashKeyURLQueryParam = "hashKeyURL"
 )
 
 type Config struct {
@@ -40,5 +41,7 @@ func Create() *Config {
 func setFlag(p *string, flagName string, defaultFlagValue string, description string) {
 	if flag.Lookup(flagName) == nil {
 		flag.StringVar(p, flagName, defaultFlagValue, description)
+	} else {
+		*p = flag.Lookup(flagName).Value.String()
 	}
 }
