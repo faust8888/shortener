@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"compress/gzip"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -119,4 +121,70 @@ func TestPostWithJson(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPostWithJsonCompress(t *testing.T) {
+	server := startTestServer()
+	defer server.Close()
+
+	type want struct {
+		code           int
+		responseRegexp string
+		isError        bool
+		errorMessage   string
+	}
+	tests := []struct {
+		name    string
+		body    interface{}
+		headers []RequestHeader
+		want    want
+	}{
+		{
+			name: "Short URL successfully created for https://yandex.ru",
+			body: compressString(`{"url":"https://yandex.ru"}`),
+			headers: []RequestHeader{
+				{"Content-Type", "application/json"},
+				{"Content-Encoding", "gzip"},
+			},
+			want: want{
+				code:           http.StatusCreated,
+				responseRegexp: `^\{\"result\":\"http:\/\/localhost:\d{1,5}\/[a-zA-Z0-9\-_\/]+\"\}$`,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			resp, err := createShortURLRequest(server.URL+"/api/shorten", test.body, test.headers...).Send()
+
+			require.NoError(t, err)
+			assert.Equal(t, test.want.code, resp.StatusCode())
+
+			if !test.want.isError {
+				assert.Regexp(t, test.want.responseRegexp, string(resp.Body()))
+			} else {
+				assert.Equal(t, test.want.errorMessage, string(resp.Body()))
+			}
+		})
+	}
+}
+
+func compressString(input string) []byte {
+	// Create a buffer to hold the compressed data
+	var buf bytes.Buffer
+
+	// Create a new Gzip writer
+	gz := gzip.NewWriter(&buf)
+
+	// Write the input string to the Gzip writer
+	if _, err := gz.Write([]byte(input)); err != nil {
+		return nil
+	}
+
+	// Close the Gzip writer to finalize the compression
+	if err := gz.Close(); err != nil {
+		return nil
+	}
+
+	// Return the compressed data as a byte slice
+	return buf.Bytes()
 }

@@ -16,15 +16,23 @@ func startTestServer() *httptest.Server {
 	return httptest.NewServer(route.Create(handler))
 }
 
-func createShortURLRequest(url, body string) *resty.Request {
+func createShortURLRequest(url string, body interface{}, headers ...RequestHeader) *resty.Request {
 	req := resty.New().R()
 	req.Method = http.MethodPost
 	req.URL = url
 	req.Body = body
+	for _, header := range headers {
+		req.SetHeader(header.HeaderName, header.HeaderValue)
+	}
 	return req
 }
 
 func extractHashKeyURLFrom(shortURL string) string {
 	parsedURL, _ := url.Parse(shortURL)
 	return parsedURL.Path
+}
+
+type RequestHeader struct {
+	HeaderName  string
+	HeaderValue string
 }
