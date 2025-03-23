@@ -1,13 +1,24 @@
 package inmemory
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/faust8888/shortener/internal/app/logger"
+	"go.uber.org/zap"
+)
 
 type Repository struct {
 	bucket map[string]string
+	bkp    *Backup
 }
 
 func (r *Repository) Save(urlHash string, fullURL string) {
-	r.bucket[urlHash] = fullURL
+	if _, exists := r.bucket[urlHash]; !exists {
+		err := r.bkp.Write(urlHash, fullURL)
+		if err != nil {
+			logger.Log.Error("backup writing failed", zap.Error(err))
+		}
+		r.bucket[urlHash] = fullURL
+	}
 }
 
 func (r *Repository) FindByHash(hashURL string) (string, error) {
@@ -17,6 +28,16 @@ func (r *Repository) FindByHash(hashURL string) (string, error) {
 	return "", fmt.Errorf("short url not found for %s", hashURL)
 }
 
-func NewRepository() *Repository {
-	return &Repository{bucket: make(map[string]string)}
+func NewRepository(backupFilePath string) *Repository {
+	bucket := make(map[string]string)
+	bkp, err := NewBackup(backupFilePath)
+	if err != nil {
+		logger.Log.Error("create backup failed", zap.Error(err))
+	} else {
+		bkp.RecoverTo(bucket)
+	}
+	return &Repository{
+		bucket: bucket,
+		bkp:    bkp,
+	}
 }

@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"github.com/faust8888/shortener/internal/app/logger"
 	"github.com/faust8888/shortener/internal/app/repository"
+	"go.uber.org/zap"
 	"net/url"
 )
 
@@ -20,12 +22,18 @@ func (s *Shortener) Create(fullURL string) (string, error) {
 	}
 	s.repository.Save(urlHash, fullURL)
 	shortURL := fmt.Sprintf("%s/%s", s.baseShortURL, urlHash)
-
+	logger.Log.Info("created short URL", zap.String("shortUrl", shortURL), zap.String("fullUrl", fullURL))
 	return shortURL, nil
 }
 
 func (s *Shortener) Find(hashURL string) (string, error) {
-	return s.repository.FindByHash(hashURL)
+	foundURL, err := s.repository.FindByHash(hashURL)
+	if err != nil {
+		logger.Log.Error("couldn't find short URL", zap.Error(err))
+		return "", err
+	}
+	logger.Log.Info("found short URL", zap.String("hashURL", hashURL))
+	return foundURL, nil
 }
 
 func CreateShortener(s repository.Repository, baseShortURL string) *Shortener {

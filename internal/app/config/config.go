@@ -11,25 +11,26 @@ const (
 	ServerAddressFlag    = "a"
 	BaseShortURLFlag     = "b"
 	LoggingLevelFlag     = "l"
+	StorageFilePathFlag  = "f"
 	HashKeyURLQueryParam = "hashKeyURL"
 )
 
 type Config struct {
-	ServerAddress string `env:"SERVER_ADDRESS"`
-	BaseShortURL  string `env:"BASE_URL"`
-	LoggingLevel  string `env:"LOGGING_LEVEL"`
+	ServerAddress   string `env:"SERVER_ADDRESS"`
+	BaseShortURL    string `env:"BASE_URL"`
+	LoggingLevel    string `env:"LOGGING_LEVEL"`
+	StorageFilePath string `env:"FILE_STORAGE_PATH"`
 }
 
 func Create() *Config {
 	var cfg Config
 
-	// Parsing flags
 	setFlag(&cfg.ServerAddress, ServerAddressFlag, "localhost:8080", "Address of the server")
 	setFlag(&cfg.BaseShortURL, BaseShortURLFlag, "http://localhost:8080", "Base URL for returning short URL")
 	setFlag(&cfg.LoggingLevel, LoggingLevelFlag, "INFO", "Level of logging to use")
+	setFlag(&cfg.StorageFilePath, StorageFilePathFlag, "./storage.txt", "Path to the storage file")
 	flag.Parse()
 
-	// Parsing environment variables with high priority over flags
 	err := env.Parse(&cfg)
 	if err != nil {
 		logger.Log.Error("Failed to parse config", zap.Error(err))

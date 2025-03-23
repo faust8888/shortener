@@ -69,7 +69,7 @@ func TestGetWithCompress(t *testing.T) {
 
 			getFullURLRequest := resty.New().SetRedirectPolicy(resty.NoRedirectPolicy()).R()
 			getFullURLRequest.Method = http.MethodGet
-			getFullURLRequest.SetHeader("Accept-Encoding", "gzip")
+			getFullURLRequest.SetHeader("Accept-Encoding", "compress")
 			getFullURLRequest.SetHeader("Content-Type", "application/json")
 			getFullURLRequest.URL = server.URL + extractHashKeyURLFrom(string(shortURLResponse.Body()))
 

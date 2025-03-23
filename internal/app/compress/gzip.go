@@ -34,13 +34,10 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 	c.w.WriteHeader(statusCode)
 }
 
-// Close закрывает gzip.Writer и досылает все данные из буфера.
 func (c *compressWriter) Close() error {
 	return c.zw.Close()
 }
 
-// compressReader реализует интерфейс io.ReadCloser и позволяет прозрачно для сервера
-// декомпрессировать получаемые от клиента данные
 type compressReader struct {
 	r  io.ReadCloser
 	zr *gzip.Reader
@@ -69,31 +66,38 @@ func (c *compressReader) Close() error {
 	return c.zr.Close()
 }
 
-func GzipMiddleware(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ow := w
+func NewMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		r := res
 
-		contentType := r.Header.Get("Content-Type")
-		supportsContentType := strings.Contains(contentType, "text/html") || strings.Contains(contentType, "application/json")
-		acceptEncoding := r.Header.Get("Accept-Encoding")
-		supportsGzip := strings.Contains(acceptEncoding, "gzip")
-
-		if supportsGzip && supportsContentType {
-			cw := newCompressWriter(w)
-			ow = cw
-			defer cw.Close()
+		if isCompressUsingForResponse(res, req) {
+			compressResponseWriter := newCompressWriter(res)
+			r = compressResponseWriter
+			defer compressResponseWriter.Close()
 		}
-		contentEncoding := r.Header.Get("Content-Encoding")
-		sendsGzip := strings.Contains(contentEncoding, "gzip")
-		if sendsGzip {
-			cr, err := newCompressReader(r.Body)
+
+		if isRequestSentWithEncoding(req) {
+			compressRequestReader, err := newCompressReader(req.Body)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				res.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			r.Body = cr
-			defer cr.Close()
+			req.Body = compressRequestReader
+			defer compressRequestReader.Close()
 		}
-		handler.ServeHTTP(ow, r)
+		handler.ServeHTTP(r, req)
 	})
+}
+
+func isRequestSentWithEncoding(r *http.Request) bool {
+	contentEncoding := r.Header.Get("Content-Encoding")
+	return strings.Contains(contentEncoding, "gzip")
+}
+
+func isCompressUsingForResponse(w http.ResponseWriter, req *http.Request) bool {
+	contentType := req.Header.Get("Content-Type")
+	supportsContentType := strings.Contains(contentType, "text/html") || strings.Contains(contentType, "application/json")
+	acceptEncoding := req.Header.Get("Accept-Encoding")
+	supportsGzip := strings.Contains(acceptEncoding, "gzip")
+	return supportsGzip && supportsContentType
 }

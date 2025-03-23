@@ -1,8 +1,8 @@
 package route
 
 import (
+	gzip "github.com/faust8888/shortener/internal/app/compress"
 	"github.com/faust8888/shortener/internal/app/config"
-	"github.com/faust8888/shortener/internal/app/gzip"
 	"github.com/faust8888/shortener/internal/app/logger"
 	"github.com/go-chi/chi/v5"
 	"net/http"
@@ -16,8 +16,8 @@ type route interface {
 
 func Create(r route) *chi.Mux {
 	router := chi.NewRouter()
-	router.Use(gzip.GzipMiddleware)
-	router.Use(logger.RequestLogger)
+	router.Use(gzip.NewMiddleware)
+	router.Use(logger.NewMiddleware)
 	router.Post("/api/shorten", r.CreateWithJSON)
 	router.Post("/", r.Create)
 	router.Get("/{"+config.HashKeyURLQueryParam+"}", r.Get)

@@ -24,7 +24,7 @@ func Initialize(level string) error {
 	return nil
 }
 
-func RequestLogger(handler http.Handler) http.Handler {
+func NewMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		wrappedWriter := middleware.NewWrapResponseWriter(w, r.ProtoMajor)

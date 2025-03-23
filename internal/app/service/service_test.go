@@ -19,7 +19,7 @@ const (
 
 func TestCreatingShortURLAndFinding(t *testing.T) {
 	cfg := config.Create()
-	service := CreateShortener(inmemory.NewRepository(), cfg.BaseShortURL)
+	service := CreateShortener(inmemory.NewRepository(cfg.StorageFilePath), cfg.BaseShortURL)
 	tests := []struct {
 		name    string
 		fullURL string
@@ -50,7 +50,7 @@ func TestCreatingShortURLAndFinding(t *testing.T) {
 
 func TestCouldNotFindFullURL(t *testing.T) {
 	cfg := config.Create()
-	shortener := CreateShortener(inmemory.NewRepository(), cfg.ServerAddress)
+	shortener := CreateShortener(inmemory.NewRepository(cfg.StorageFilePath), cfg.ServerAddress)
 	_, err := shortener.Create(TestURL)
 	require.NoError(t, err, CreateShortURLErrorMessage)
 

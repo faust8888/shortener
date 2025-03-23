@@ -15,7 +15,7 @@ func main() {
 	if err := logger.Initialize(cfg.LoggingLevel); err != nil {
 		panic(err)
 	}
-	h := handler.Create(inmemory.NewRepository(), cfg.BaseShortURL)
+	h := handler.Create(inmemory.NewRepository(cfg.StorageFilePath), cfg.BaseShortURL)
 	logger.Log.Info("Starting server", zap.String("address", cfg.ServerAddress))
 	if err := http.ListenAndServe(cfg.ServerAddress, route.Create(h)); err != nil {
 		panic(err)

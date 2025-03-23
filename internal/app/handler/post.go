@@ -27,13 +27,12 @@ func (handler *post) Create(res http.ResponseWriter, req *http.Request) {
 
 	fullURL := string(requestBody)
 	shortURL, err := handler.creator.Create(fullURL)
-
 	if err != nil {
 		logger.Log.Error("Failed to post short URL", zap.String("body", fullURL), zap.Error(err))
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-	logger.Log.Info("created short URL", zap.String("shortUrl", shortURL), zap.String("fullUrl", fullURL))
+
 	res.WriteHeader(http.StatusCreated)
 	_, err = res.Write([]byte(shortURL))
 	if err != nil {
@@ -64,17 +63,22 @@ func (handler *postWithJSON) CreateWithJSON(res http.ResponseWriter, req *http.R
 		return
 	}
 
-	shortURL, _ := handler.creator.Create(createRequest.URL)
+	shortURL, err := handler.creator.Create(createRequest.URL)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	resp, err := json.Marshal(&model.CreateShortResponse{Result: shortURL})
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusCreated)
 	_, err = res.Write(resp)
 	if err != nil {
-		logger.Log.Error("couldn't write response", zap.Error(err))
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 	}
 }

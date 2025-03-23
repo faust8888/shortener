@@ -12,7 +12,7 @@ import (
 
 func startTestServer() *httptest.Server {
 	cfg := config.Create()
-	handler := Create(inmemory.NewRepository(), cfg.BaseShortURL)
+	handler := Create(inmemory.NewRepository(cfg.StorageFilePath), cfg.BaseShortURL)
 	return httptest.NewServer(route.Create(handler))
 }
 
