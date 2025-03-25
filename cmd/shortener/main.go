@@ -3,9 +3,9 @@ package main
 import (
 	"github.com/faust8888/shortener/internal/app/config"
 	"github.com/faust8888/shortener/internal/app/handler"
-	"github.com/faust8888/shortener/internal/app/logger"
 	"github.com/faust8888/shortener/internal/app/repository/inmemory"
 	"github.com/faust8888/shortener/internal/app/route"
+	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 	"net/http"
 )

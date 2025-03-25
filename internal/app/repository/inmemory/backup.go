@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/faust8888/shortener/internal/app/logger"
+	"github.com/faust8888/shortener/internal/middleware/logger"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"os"
@@ -14,19 +14,6 @@ type Backup struct {
 	file    *os.File
 	writer  *bufio.Writer
 	scanner *bufio.Scanner
-}
-
-func NewBackup(filename string) (*Backup, error) {
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return nil, fmt.Errorf("can't open file: %w", err)
-	}
-
-	return &Backup{
-		file:    file,
-		writer:  bufio.NewWriter(file),
-		scanner: bufio.NewScanner(file),
-	}, nil
 }
 
 func (p *Backup) Write(urlHash string, fullURL string) error {
@@ -59,6 +46,19 @@ func (p *Backup) RecoverTo(bucket map[string]string) {
 		}
 		bucket[event.ShortURL] = event.OriginalURL
 	}
+}
+
+func NewBackup(filename string) (*Backup, error) {
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return nil, fmt.Errorf("can't open file: %w", err)
+	}
+
+	return &Backup{
+		file:    file,
+		writer:  bufio.NewWriter(file),
+		scanner: bufio.NewScanner(file),
+	}, nil
 }
 
 type createShortBackupEvent struct {

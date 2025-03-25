@@ -3,15 +3,15 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/faust8888/shortener/internal/app/logger"
 	"github.com/faust8888/shortener/internal/app/model"
+	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
 )
 
 type post struct {
-	creator creator
+	service creator
 }
 
 type creator interface {
@@ -26,7 +26,7 @@ func (handler *post) Create(res http.ResponseWriter, req *http.Request) {
 	}
 
 	fullURL := string(requestBody)
-	shortURL, err := handler.creator.Create(fullURL)
+	shortURL, err := handler.service.Create(fullURL)
 	if err != nil {
 		logger.Log.Error("Failed to post short URL", zap.String("body", fullURL), zap.Error(err))
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -42,7 +42,7 @@ func (handler *post) Create(res http.ResponseWriter, req *http.Request) {
 }
 
 type postWithJSON struct {
-	creator creator
+	service creator
 }
 
 func (handler *postWithJSON) CreateWithJSON(res http.ResponseWriter, req *http.Request) {
@@ -63,7 +63,7 @@ func (handler *postWithJSON) CreateWithJSON(res http.ResponseWriter, req *http.R
 		return
 	}
 
-	shortURL, err := handler.creator.Create(createRequest.URL)
+	shortURL, err := handler.service.Create(createRequest.URL)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return

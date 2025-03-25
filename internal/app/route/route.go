@@ -1,9 +1,9 @@
 package route
 
 import (
-	gzip "github.com/faust8888/shortener/internal/app/compress"
 	"github.com/faust8888/shortener/internal/app/config"
-	"github.com/faust8888/shortener/internal/app/logger"
+	"github.com/faust8888/shortener/internal/middleware/compress"
+	"github.com/faust8888/shortener/internal/middleware/logger"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 )

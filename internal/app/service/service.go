@@ -4,8 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"github.com/faust8888/shortener/internal/app/logger"
 	"github.com/faust8888/shortener/internal/app/repository"
+	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 	"net/url"
 )

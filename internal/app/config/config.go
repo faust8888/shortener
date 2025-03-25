@@ -3,7 +3,7 @@ package config
 import (
 	"flag"
 	"github.com/caarlos0/env/v6"
-	"github.com/faust8888/shortener/internal/app/logger"
+	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 )
 

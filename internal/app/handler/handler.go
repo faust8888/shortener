@@ -13,8 +13,8 @@ type Handler struct {
 
 func Create(s repository.Repository, baseShortURL string) *Handler {
 	return &Handler{
-		post:         post{creator: service.CreateShortener(s, baseShortURL)},
-		postWithJSON: postWithJSON{creator: service.CreateShortener(s, baseShortURL)},
-		get:          get{finder: service.CreateShortener(s, baseShortURL)},
+		post:         post{service: service.CreateShortener(s, baseShortURL)},
+		postWithJSON: postWithJSON{service: service.CreateShortener(s, baseShortURL)},
+		get:          get{service: service.CreateShortener(s, baseShortURL)},
 	}
 }

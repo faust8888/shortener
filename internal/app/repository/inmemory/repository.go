@@ -2,7 +2,7 @@ package inmemory
 
 import (
 	"fmt"
-	"github.com/faust8888/shortener/internal/app/logger"
+	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 )
 
