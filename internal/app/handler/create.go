@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-type post struct {
+type create struct {
 	service creator
 }
 
@@ -18,7 +18,7 @@ type creator interface {
 	Create(fullURL string) (string, error)
 }
 
-func (handler *post) Create(res http.ResponseWriter, req *http.Request) {
+func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
 	requestBody, err := io.ReadAll(req.Body)
 	if err != nil {
 		http.Error(res, "couldn't read the targetFullURL of request!", http.StatusBadRequest)
@@ -28,7 +28,7 @@ func (handler *post) Create(res http.ResponseWriter, req *http.Request) {
 	fullURL := string(requestBody)
 	shortURL, err := handler.service.Create(fullURL)
 	if err != nil {
-		logger.Log.Error("Failed to post short URL", zap.String("body", fullURL), zap.Error(err))
+		logger.Log.Error("Failed to create short URL", zap.String("body", fullURL), zap.Error(err))
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -41,11 +41,11 @@ func (handler *post) Create(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-type postWithJSON struct {
+type createWithJSON struct {
 	service creator
 }
 
-func (handler *postWithJSON) CreateWithJSON(res http.ResponseWriter, req *http.Request) {
+func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http.Request) {
 	var buf bytes.Buffer
 	_, err := buf.ReadFrom(req.Body)
 	if err != nil {

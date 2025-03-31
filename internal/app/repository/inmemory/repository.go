@@ -28,7 +28,7 @@ func (r *Repository) FindByHash(hashURL string) (string, error) {
 	return "", fmt.Errorf("short url not found for %s", hashURL)
 }
 
-func NewRepository(backupFilePath string) *Repository {
+func NewInMemoryRepository(backupFilePath string) *Repository {
 	bucket := make(map[string]string)
 	bkp, err := NewBackup(backupFilePath)
 	if err != nil {

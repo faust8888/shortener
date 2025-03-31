@@ -10,7 +10,7 @@ import (
 )
 
 func TestPost(t *testing.T) {
-	server := startTestServer()
+	server := startTestServer(t)
 	defer server.Close()
 
 	type want struct {
@@ -67,7 +67,7 @@ func TestPost(t *testing.T) {
 }
 
 func TestPostWithJson(t *testing.T) {
-	server := startTestServer()
+	server := startTestServer(t)
 	defer server.Close()
 
 	type want struct {
@@ -124,7 +124,7 @@ func TestPostWithJson(t *testing.T) {
 }
 
 func TestPostWithJsonCompress(t *testing.T) {
-	server := startTestServer()
+	server := startTestServer(t)
 	defer server.Close()
 
 	type want struct {
