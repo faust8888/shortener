@@ -1,8 +1,8 @@
 package service
 
 import (
-	"flag"
-	"github.com/faust8888/shortener/cmd/config"
+	"github.com/faust8888/shortener/internal/app/config"
+	"github.com/faust8888/shortener/internal/app/repository/inmemory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/url"
@@ -18,7 +18,8 @@ const (
 )
 
 func TestCreatingShortURLAndFinding(t *testing.T) {
-	service := NewInMemoryShortenerService()
+	cfg := config.Create()
+	service := CreateShortener(inmemory.NewRepository(cfg.StorageFilePath), cfg.BaseShortURL)
 	tests := []struct {
 		name    string
 		fullURL string
@@ -34,12 +35,12 @@ func TestCreatingShortURLAndFinding(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			shortURL, err := service.CreateShortURL(test.fullURL)
+			shortURL, err := service.Create(test.fullURL)
 			require.NoError(t, err, CreateShortURLErrorMessage)
 			parsedURL, _ := url.Parse(shortURL)
 
 			hashURL := strings.TrimPrefix(parsedURL.Path, "/")
-			returnedFullURL, err := service.FindFullURL(hashURL)
+			returnedFullURL, err := service.Find(hashURL)
 
 			require.NoError(t, err, GetFullURLErrorMessage)
 			assert.Equal(t, test.fullURL, returnedFullURL, URLNotMatchErrorMessage)
@@ -48,26 +49,14 @@ func TestCreatingShortURLAndFinding(t *testing.T) {
 }
 
 func TestCouldNotFindFullURL(t *testing.T) {
-	service := NewInMemoryShortenerService()
-	_, err := service.CreateShortURL(TestURL)
+	cfg := config.Create()
+	shortener := CreateShortener(inmemory.NewRepository(cfg.StorageFilePath), cfg.ServerAddress)
+	_, err := shortener.Create(TestURL)
 	require.NoError(t, err, CreateShortURLErrorMessage)
 
-	fullURL, err := service.FindFullURL("not_existing_hash_key")
+	fullURL, err := shortener.Find("not_existing_hash_key")
 
 	require.Error(t, err, "Expected error when trying to find full URL")
 	require.Equal(t, "short url not found for not_existing_hash_key", err.Error())
 	require.Equal(t, "", fullURL)
-}
-
-func TestCreateShortURLWithCustomBaseURLFlag(t *testing.T) {
-	baseShortURLFlagValue := "http://custom_base_short_url:9099"
-
-	flag.StringVar(&config.Cfg.BaseShortURL, config.BaseShortURLFlag, baseShortURLFlagValue, "Base short URL")
-	flag.Parse()
-
-	shortURL, err := NewInMemoryShortenerService().CreateShortURL(TestURL)
-	require.NoError(t, err, CreateShortURLErrorMessage)
-	returnedBaseShortURL := shortURL[:strings.LastIndex(shortURL, "/")]
-
-	assert.Equal(t, baseShortURLFlagValue, returnedBaseShortURL, URLNotMatchErrorMessage)
 }

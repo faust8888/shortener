@@ -1,43 +1,65 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
-	"github.com/faust8888/shortener/cmd/config"
-	"github.com/faust8888/shortener/internal/app/storage"
-	"github.com/faust8888/shortener/internal/app/util"
+	"github.com/faust8888/shortener/internal/app/repository"
+	"github.com/faust8888/shortener/internal/middleware/logger"
+	"go.uber.org/zap"
+	"net/url"
 )
 
-type URLShortener interface {
-	CreateShortURL(fullURL string) (string, error)
-	FindFullURL(hashURL string) (string, error)
+type Shortener struct {
+	repository   repository.Repository
+	baseShortURL string
 }
 
-type URLShortenerService struct {
-	storage storage.Storage
-}
-
-func (s *URLShortenerService) CreateShortURL(fullURL string) (string, error) {
-	urlHash, err := s.createHashForURL(fullURL)
+func (s *Shortener) Create(fullURL string) (string, error) {
+	urlHash, err := createHashForURL(fullURL)
 	if err != nil {
 		return "", err
 	}
-	s.storage.Save(urlHash, fullURL)
-	shortURL := fmt.Sprintf("%s/%s", config.Cfg.BaseShortURL, urlHash)
-
+	s.repository.Save(urlHash, fullURL)
+	shortURL := fmt.Sprintf("%s/%s", s.baseShortURL, urlHash)
+	logger.Log.Info("created short URL", zap.String("shortUrl", shortURL), zap.String("fullUrl", fullURL))
 	return shortURL, nil
 }
 
-func (s *URLShortenerService) FindFullURL(hashURL string) (string, error) {
-	return s.storage.FindByHashURL(hashURL)
+func (s *Shortener) Find(hashURL string) (string, error) {
+	foundURL, err := s.repository.FindByHash(hashURL)
+	if err != nil {
+		logger.Log.Error("couldn't find short URL", zap.Error(err))
+		return "", err
+	}
+	logger.Log.Info("found short URL", zap.String("hashURL", hashURL))
+	return foundURL, nil
 }
 
-func NewInMemoryShortenerService() *URLShortenerService {
-	return &URLShortenerService{storage: storage.NewInMemoryStorage()}
+func CreateShortener(s repository.Repository, baseShortURL string) *Shortener {
+	return &Shortener{repository: s, baseShortURL: baseShortURL}
 }
 
-func (s *URLShortenerService) createHashForURL(fullURL string) (string, error) {
-	if util.IsInvalidURL(fullURL) {
+func createHashForURL(fullURL string) (string, error) {
+	if isInvalidURL(fullURL) {
 		return "", fmt.Errorf("invalid url")
 	}
-	return util.CreateHash(fullURL), nil
+	return createHash(fullURL), nil
+}
+
+func isInvalidURL(fullURL string) bool {
+	parsedURL, err := url.Parse(fullURL)
+	if err != nil {
+		return true
+	}
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return true
+	}
+	return false
+}
+
+func createHash(key string) string {
+	hashBytes := sha256.Sum256([]byte(key))
+	hashString := base64.URLEncoding.EncodeToString(hashBytes[:])
+	return hashString[:10]
 }

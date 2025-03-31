@@ -1,19 +1,23 @@
 package main
 
 import (
-	"fmt"
-	"github.com/faust8888/shortener/cmd/config"
-	"github.com/faust8888/shortener/internal/app/handlers"
+	"github.com/faust8888/shortener/internal/app/config"
+	"github.com/faust8888/shortener/internal/app/handler"
+	"github.com/faust8888/shortener/internal/app/repository/inmemory"
+	"github.com/faust8888/shortener/internal/app/route"
+	"github.com/faust8888/shortener/internal/middleware/logger"
+	"go.uber.org/zap"
 	"net/http"
 )
 
 func main() {
-	fmt.Println("### Configuring server ###")
-	config.LoadConfig()
-	router := handlers.CreateRouter(handlers.CreateInMemoryHandler())
-	fmt.Printf("Starting server on %s\n\n", config.Cfg.ServerAddress)
-
-	if err := http.ListenAndServe(config.Cfg.ServerAddress, router); err != nil {
+	cfg := config.Create()
+	if err := logger.Initialize(cfg.LoggingLevel); err != nil {
+		panic(err)
+	}
+	h := handler.Create(inmemory.NewRepository(cfg.StorageFilePath), cfg.BaseShortURL)
+	logger.Log.Info("Starting server", zap.String("address", cfg.ServerAddress))
+	if err := http.ListenAndServe(cfg.ServerAddress, route.Create(h)); err != nil {
 		panic(err)
 	}
 }
