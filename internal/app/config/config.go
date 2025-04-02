@@ -31,7 +31,7 @@ func Create() *Config {
 	setFlag(&cfg.BaseShortURL, BaseShortURLFlag, "http://localhost:8080", "Base URL for returning short URL")
 	setFlag(&cfg.LoggingLevel, LoggingLevelFlag, "INFO", "Level of logging to use")
 	setFlag(&cfg.StorageFilePath, StorageFilePathFlag, "./storage.txt", "Path to the storage file")
-	setFlag(&cfg.DataSourceName, DataSourceNameFlag, "postgres://localhost:5432/postgres?sslmode=disable", "URL to the running PostgreSQL")
+	setFlag(&cfg.DataSourceName, DataSourceNameFlag, "", "URL to the running PostgreSQL")
 	flag.Parse()
 
 	err := env.Parse(&cfg)

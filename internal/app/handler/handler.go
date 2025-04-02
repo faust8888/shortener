@@ -13,9 +13,9 @@ type Handler struct {
 
 func Create(s *service.Shortener, pingChecker PingChecker) *Handler {
 	return &Handler{
-		create:         create{service: s},
+		create:         create{s},
 		createWithJSON: createWithJSON{s},
 		find:           find{s},
-		ping:           ping{service: pingChecker},
+		ping:           ping{pingChecker},
 	}
 }

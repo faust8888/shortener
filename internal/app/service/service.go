@@ -20,7 +20,10 @@ func (s *Shortener) Create(fullURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	s.repository.Save(urlHash, fullURL)
+	err = s.repository.Save(urlHash, fullURL)
+	if err != nil {
+		return "", fmt.Errorf("service.create: %w", err)
+	}
 	shortURL := fmt.Sprintf("%s/%s", s.baseShortURL, urlHash)
 	logger.Log.Info("created short URL", zap.String("shortUrl", shortURL), zap.String("fullUrl", fullURL))
 	return shortURL, nil
