@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/faust8888/shortener/internal/app/model"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"time"
 )
@@ -41,6 +42,29 @@ func (r *Repository) FindByHash(hash string) (string, error) {
 		return "", fmt.Errorf("failed to find record by hash: %v", err)
 	}
 	return fullURL, nil
+}
+
+func (r *Repository) SaveAll(batch map[string]model.CreateShortDTO) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("postgres.repository.saveAll.begin - %w", err)
+	}
+	for _, batchItem := range batch {
+		_, err = tx.ExecContext(context.Background(),
+			"INSERT INTO shortener (short_url, full_url) VALUES ($1, $2)", batchItem.HashURL, batchItem.OriginalURL)
+		if err != nil {
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				return fmt.Errorf("postgres.repository.saveAll.rollback - %w", rollbackErr)
+			}
+			return fmt.Errorf("postgres.repository.saveAll.insert: %w", err)
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("postgres.repository.saveAll.commit - %w", err)
+	}
+	return nil
 }
 
 func (r *Repository) Ping() (bool, error) {

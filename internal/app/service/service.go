@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"github.com/faust8888/shortener/internal/app/model"
 	"github.com/faust8888/shortener/internal/app/repository"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
@@ -39,6 +40,28 @@ func (s *Shortener) Find(hashURL string) (string, error) {
 	return foundURL, nil
 }
 
+func (s *Shortener) CreateWithBatch(batch []model.CreateShortRequestBatchItemRequest) ([]model.CreateShortRequestBatchItemResponse, error) {
+	logger.Log.Info("creating short URLs with batch", zap.Int("size", len(batch)))
+	batchMap := s.createBatchMap(batch)
+	err := s.repository.SaveAll(batchMap)
+	if err != nil {
+		return nil, fmt.Errorf("service.createWithBatch: %w", err)
+	}
+	var result = make([]model.CreateShortRequestBatchItemResponse, 0)
+	for correlationID, value := range batchMap {
+		logger.Log.Info("created",
+			zap.String("correlationID", correlationID),
+			zap.String("shortURL", value.ShortURL),
+			zap.String("originalURL", value.OriginalURL))
+		result = append(result,
+			model.CreateShortRequestBatchItemResponse{
+				CorrelationID: correlationID,
+				ShortURL:      value.ShortURL,
+			})
+	}
+	return result, nil
+}
+
 func CreateShortener(s repository.Repository, baseShortURL string) *Shortener {
 	return &Shortener{repository: s, baseShortURL: baseShortURL}
 }
@@ -65,4 +88,17 @@ func createHash(key string) string {
 	hashBytes := sha256.Sum256([]byte(key))
 	hashString := base64.URLEncoding.EncodeToString(hashBytes[:])
 	return hashString[:10]
+}
+
+func (s *Shortener) createBatchMap(batch []model.CreateShortRequestBatchItemRequest) map[string]model.CreateShortDTO {
+	var createShortMap = make(map[string]model.CreateShortDTO)
+	for _, batchItem := range batch {
+		var hashURL = createHash(batchItem.OriginalURL)
+		createShortMap[batchItem.CorrelationID] = model.CreateShortDTO{
+			OriginalURL: batchItem.OriginalURL,
+			ShortURL:    fmt.Sprintf("%s/%s", s.baseShortURL, hashURL),
+			HashURL:     hashURL,
+		}
+	}
+	return createShortMap
 }

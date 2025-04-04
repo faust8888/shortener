@@ -9,6 +9,7 @@ import (
 )
 
 type route interface {
+	CreateWithBatch(res http.ResponseWriter, req *http.Request)
 	CreateWithJSON(res http.ResponseWriter, req *http.Request)
 	Create(res http.ResponseWriter, req *http.Request)
 	Get(res http.ResponseWriter, req *http.Request)
@@ -20,6 +21,7 @@ func Create(r route) *chi.Mux {
 	router.Use(gzip.NewMiddleware)
 	router.Use(logger.NewMiddleware)
 	router.Post("/api/shorten", r.CreateWithJSON)
+	router.Post("/api/shorten/batch", r.CreateWithBatch)
 	router.Post("/", r.Create)
 	router.Get("/{"+config.HashKeyURLQueryParam+"}", r.Get)
 	router.Get("/ping", r.Ping)

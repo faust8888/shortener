@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"fmt"
+	"github.com/faust8888/shortener/internal/app/model"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 )
@@ -27,6 +28,16 @@ func (r *Repository) FindByHash(hashURL string) (string, error) {
 		return fullURL, nil
 	}
 	return "", fmt.Errorf("short url not found for %s", hashURL)
+}
+
+func (r *Repository) SaveAll(batch map[string]model.CreateShortDTO) error {
+	for _, batchItem := range batch {
+		err := r.Save(batchItem.HashURL, batchItem.OriginalURL)
+		if err != nil {
+			return fmt.Errorf("inmemory.repository.saveAll: %w", err)
+		}
+	}
+	return nil
 }
 
 func (r *Repository) Ping() (bool, error) {
