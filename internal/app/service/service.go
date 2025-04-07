@@ -3,9 +3,11 @@ package service
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/faust8888/shortener/internal/app/model"
 	"github.com/faust8888/shortener/internal/app/repository"
+	"github.com/faust8888/shortener/internal/app/repository/postgres"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 	"net/url"
@@ -22,12 +24,12 @@ func (s *Shortener) Create(fullURL string) (string, error) {
 		return "", err
 	}
 	err = s.repository.Save(urlHash, fullURL)
-	if err != nil {
+	if err != nil && !errors.Is(err, postgres.ErrUniqueIndexConstraint) {
 		return "", fmt.Errorf("service.create: %w", err)
 	}
 	shortURL := fmt.Sprintf("%s/%s", s.baseShortURL, urlHash)
 	logger.Log.Info("created short URL", zap.String("shortUrl", shortURL), zap.String("fullUrl", fullURL))
-	return shortURL, nil
+	return shortURL, err
 }
 
 func (s *Shortener) Find(hashURL string) (string, error) {

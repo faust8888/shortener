@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+var ErrUniqueIndexConstraint = errors.New("full_url unique index constraint violation")
+
 type Repository struct {
 	db *sql.DB
 }
@@ -17,10 +19,14 @@ type Repository struct {
 func (r *Repository) Save(urlHash string, fullURL string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	_, err := r.db.ExecContext(ctx,
-		"INSERT INTO shortener (short_url, full_url) VALUES ($1, $2)", urlHash, fullURL)
+	res, err := r.db.ExecContext(ctx,
+		"INSERT INTO shortener (short_url, full_url) VALUES ($1, $2) ON CONFLICT (full_url) DO NOTHING", urlHash, fullURL)
 	if err != nil {
 		return fmt.Errorf("repository.postgres.save: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrUniqueIndexConstraint
 	}
 	return nil
 }

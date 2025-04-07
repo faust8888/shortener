@@ -3,7 +3,9 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/faust8888/shortener/internal/app/model"
+	"github.com/faust8888/shortener/internal/app/repository/postgres"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 	"io"
@@ -27,13 +29,19 @@ func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
 
 	fullURL := string(requestBody)
 	shortURL, err := handler.service.Create(fullURL)
-	if err != nil {
+	isUniqueConstraintViolation := errors.Is(err, postgres.ErrUniqueIndexConstraint)
+	if err != nil && !isUniqueConstraintViolation {
 		logger.Log.Error("Failed to create short URL", zap.String("body", fullURL), zap.Error(err))
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	res.WriteHeader(http.StatusCreated)
+	if isUniqueConstraintViolation {
+		res.WriteHeader(http.StatusConflict)
+	} else {
+		res.WriteHeader(http.StatusCreated)
+	}
+
 	_, err = res.Write([]byte(shortURL))
 	if err != nil {
 		logger.Log.Error("couldn't write response", zap.Error(err))
@@ -64,7 +72,8 @@ func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http
 	}
 
 	shortURL, err := handler.service.Create(createRequest.URL)
-	if err != nil {
+	isUniqueConstraintViolation := errors.Is(err, postgres.ErrUniqueIndexConstraint)
+	if err != nil && !isUniqueConstraintViolation {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -76,7 +85,12 @@ func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(http.StatusCreated)
+	if isUniqueConstraintViolation {
+		res.WriteHeader(http.StatusConflict)
+	} else {
+		res.WriteHeader(http.StatusCreated)
+	}
+
 	_, err = res.Write(resp)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
