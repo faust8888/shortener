@@ -8,7 +8,7 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	server := startTestServer()
+	server := startTestServer(t)
 	defer server.Close()
 
 	type want struct {
@@ -44,7 +44,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestGetWithCompress(t *testing.T) {
-	server := startTestServer()
+	server := startTestServer(t)
 	defer server.Close()
 
 	type want struct {

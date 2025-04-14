@@ -2,17 +2,27 @@ package handler
 
 import (
 	"github.com/faust8888/shortener/internal/app/config"
+	"github.com/faust8888/shortener/internal/app/mocks"
 	"github.com/faust8888/shortener/internal/app/repository/inmemory"
 	"github.com/faust8888/shortener/internal/app/route"
+	"github.com/faust8888/shortener/internal/app/service"
 	"github.com/go-resty/resty/v2"
+	"github.com/golang/mock/gomock"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"testing"
 )
 
-func startTestServer() *httptest.Server {
+func startTestServer(t *testing.T) *httptest.Server {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	pingChecker := createPingCheckerMock(ctrl)
+
 	cfg := config.Create()
-	handler := Create(inmemory.NewRepository(cfg.StorageFilePath), cfg.BaseShortURL)
+	shortener := service.CreateShortener(inmemory.NewInMemoryRepository(cfg.StorageFilePath), cfg.BaseShortURL)
+	handler := Create(shortener, pingChecker)
+
 	return httptest.NewServer(route.Create(handler))
 }
 
@@ -30,6 +40,12 @@ func createShortURLRequest(url string, body interface{}, headers ...RequestHeade
 func extractHashKeyURLFrom(shortURL string) string {
 	parsedURL, _ := url.Parse(shortURL)
 	return parsedURL.Path
+}
+
+func createPingCheckerMock(ctrl *gomock.Controller) *mocks.MockPingChecker {
+	pingChecker := mocks.NewMockPingChecker(ctrl)
+	pingChecker.EXPECT().Ping().AnyTimes().Return(true, nil)
+	return pingChecker
 }
 
 type RequestHeader struct {

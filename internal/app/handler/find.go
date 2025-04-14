@@ -8,7 +8,7 @@ import (
 
 const LocationHeader = "Location"
 
-type get struct {
+type find struct {
 	service finder
 }
 
@@ -16,7 +16,7 @@ type finder interface {
 	Find(hashURL string) (string, error)
 }
 
-func (handler *get) Get(res http.ResponseWriter, req *http.Request) {
+func (handler *find) Get(res http.ResponseWriter, req *http.Request) {
 	searchedHashURL := chi.URLParam(req, config.HashKeyURLQueryParam)
 	fullURL, err := handler.service.Find(searchedHashURL)
 	if err != nil {

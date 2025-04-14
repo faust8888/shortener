@@ -12,6 +12,7 @@ const (
 	BaseShortURLFlag     = "b"
 	LoggingLevelFlag     = "l"
 	StorageFilePathFlag  = "f"
+	DataSourceNameFlag   = "d"
 	HashKeyURLQueryParam = "hashKeyURL"
 )
 
@@ -20,6 +21,7 @@ type Config struct {
 	BaseShortURL    string `env:"BASE_URL"`
 	LoggingLevel    string `env:"LOGGING_LEVEL"`
 	StorageFilePath string `env:"FILE_STORAGE_PATH"`
+	DataSourceName  string `env:"DATABASE_DSN"`
 }
 
 func Create() *Config {
@@ -29,6 +31,7 @@ func Create() *Config {
 	setFlag(&cfg.BaseShortURL, BaseShortURLFlag, "http://localhost:8080", "Base URL for returning short URL")
 	setFlag(&cfg.LoggingLevel, LoggingLevelFlag, "INFO", "Level of logging to use")
 	setFlag(&cfg.StorageFilePath, StorageFilePathFlag, "./storage.txt", "Path to the storage file")
+	setFlag(&cfg.DataSourceName, DataSourceNameFlag, "", "URL to the running PostgreSQL")
 	flag.Parse()
 
 	err := env.Parse(&cfg)

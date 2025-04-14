@@ -32,7 +32,7 @@ func TestInMemoryStorageFindByHashURLAndSave(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewRepository(config.Create().StorageFilePath)
+			s := NewInMemoryRepository(config.Create().StorageFilePath)
 
 			s.Save(tt.urlHashForSaving, tt.fullURL)
 			returnedFullURL, err := s.FindByHash(tt.urlHashForSearching)

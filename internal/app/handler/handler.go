@@ -1,20 +1,23 @@
 package handler
 
 import (
-	"github.com/faust8888/shortener/internal/app/repository"
 	"github.com/faust8888/shortener/internal/app/service"
 )
 
 type Handler struct {
-	post
-	postWithJSON
-	get
+	create
+	createWithJSON
+	batch
+	find
+	ping
 }
 
-func Create(s repository.Repository, baseShortURL string) *Handler {
+func Create(s *service.Shortener, pingChecker PingChecker) *Handler {
 	return &Handler{
-		post:         post{service: service.CreateShortener(s, baseShortURL)},
-		postWithJSON: postWithJSON{service: service.CreateShortener(s, baseShortURL)},
-		get:          get{service: service.CreateShortener(s, baseShortURL)},
+		create:         create{s},
+		createWithJSON: createWithJSON{s},
+		batch:          batch{s},
+		find:           find{s},
+		ping:           ping{pingChecker},
 	}
 }

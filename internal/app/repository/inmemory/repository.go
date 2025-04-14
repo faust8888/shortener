@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"fmt"
+	"github.com/faust8888/shortener/internal/app/model"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 )
@@ -11,7 +12,7 @@ type Repository struct {
 	bkp    *Backup
 }
 
-func (r *Repository) Save(urlHash string, fullURL string) {
+func (r *Repository) Save(urlHash string, fullURL string) error {
 	if _, exists := r.bucket[urlHash]; !exists {
 		err := r.bkp.Write(urlHash, fullURL)
 		if err != nil {
@@ -19,6 +20,7 @@ func (r *Repository) Save(urlHash string, fullURL string) {
 		}
 		r.bucket[urlHash] = fullURL
 	}
+	return nil
 }
 
 func (r *Repository) FindByHash(hashURL string) (string, error) {
@@ -28,7 +30,21 @@ func (r *Repository) FindByHash(hashURL string) (string, error) {
 	return "", fmt.Errorf("short url not found for %s", hashURL)
 }
 
-func NewRepository(backupFilePath string) *Repository {
+func (r *Repository) SaveAll(batch map[string]model.CreateShortDTO) error {
+	for _, batchItem := range batch {
+		err := r.Save(batchItem.HashURL, batchItem.OriginalURL)
+		if err != nil {
+			return fmt.Errorf("inmemory.repository.saveAll: %w", err)
+		}
+	}
+	return nil
+}
+
+func (r *Repository) Ping() (bool, error) {
+	return true, nil
+}
+
+func NewInMemoryRepository(backupFilePath string) *Repository {
 	bucket := make(map[string]string)
 	bkp, err := NewBackup(backupFilePath)
 	if err != nil {
