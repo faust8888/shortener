@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"compress/gzip"
+	"github.com/faust8888/shortener/internal/app/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -46,7 +47,7 @@ func TestPost(t *testing.T) {
 			want: want{
 				code:         http.StatusBadRequest,
 				isError:      true,
-				errorMessage: "invalid url\n",
+				errorMessage: "hash for url: invalid url\n",
 			},
 		},
 	}
@@ -56,6 +57,7 @@ func TestPost(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
+			assert.NotEmpty(t, security.GetToken(resp.Cookies()))
 
 			if !test.want.isError {
 				assert.Regexp(t, test.want.responseRegexp, string(resp.Body()))
@@ -113,6 +115,7 @@ func TestPostWithJson(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
+			assert.NotEmpty(t, security.GetToken(resp.Cookies()))
 
 			if !test.want.isError {
 				assert.Regexp(t, test.want.responseRegexp, string(resp.Body()))
@@ -158,6 +161,7 @@ func TestPostWithJsonCompress(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
+			assert.NotEmpty(t, security.GetToken(resp.Cookies()))
 
 			if !test.want.isError {
 				assert.Regexp(t, test.want.responseRegexp, string(resp.Body()))

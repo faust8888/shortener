@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/faust8888/shortener/internal/app/config"
 	"github.com/faust8888/shortener/internal/app/service"
 )
 
@@ -12,12 +13,12 @@ type Handler struct {
 	ping
 }
 
-func Create(s *service.Shortener, pingChecker PingChecker) *Handler {
+func Create(s *service.Shortener, pingChecker PingChecker, cfg *config.Config) *Handler {
 	return &Handler{
-		create:         create{s},
-		createWithJSON: createWithJSON{s},
-		batch:          batch{s},
-		find:           find{s},
+		create:         create{service: s, authKey: cfg.AuthKey},
+		createWithJSON: createWithJSON{service: s, authKey: cfg.AuthKey},
+		batch:          batch{service: s, authKey: cfg.AuthKey},
+		find:           find{service: s, authKey: cfg.AuthKey},
 		ping:           ping{pingChecker},
 	}
 }

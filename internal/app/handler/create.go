@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/faust8888/shortener/internal/app/model"
 	"github.com/faust8888/shortener/internal/app/repository/postgres"
+	"github.com/faust8888/shortener/internal/app/security"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 	"io"
@@ -14,10 +16,11 @@ import (
 
 type create struct {
 	service creator
+	authKey string
 }
 
 type creator interface {
-	Create(fullURL string) (string, error)
+	Create(fullURL string, userID string) (string, error)
 }
 
 func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
@@ -27,8 +30,26 @@ func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	token := security.GetToken(req.Cookies())
+	if token == "" {
+		token, err = security.BuildToken(handler.authKey)
+		if err != nil {
+			http.Error(res, fmt.Sprintf("build token: %s", err.Error()), http.StatusInternalServerError)
+			return
+		}
+		http.SetCookie(res, &http.Cookie{
+			Name:  security.AuthorizationTokenName,
+			Value: token,
+		})
+	}
+	userID, err := security.GetUserID(token, handler.authKey)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	fullURL := string(requestBody)
-	shortURL, err := handler.service.Create(fullURL)
+	shortURL, err := handler.service.Create(fullURL, userID)
 	isUniqueConstraintViolation := errors.Is(err, postgres.ErrUniqueIndexConstraint)
 	if err != nil && !isUniqueConstraintViolation {
 		logger.Log.Error("Failed to create short URL", zap.String("body", fullURL), zap.Error(err))
@@ -51,6 +72,7 @@ func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
 
 type createWithJSON struct {
 	service creator
+	authKey string
 }
 
 func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http.Request) {
@@ -60,6 +82,25 @@ func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	token := security.GetToken(req.Cookies())
+	if token == "" {
+		token, err = security.BuildToken(handler.authKey)
+		if err != nil {
+			http.Error(res, fmt.Sprintf("build token: %s", err.Error()), http.StatusInternalServerError)
+			return
+		}
+		http.SetCookie(res, &http.Cookie{
+			Name:  security.AuthorizationTokenName,
+			Value: token,
+		})
+	}
+	userID, err := security.GetUserID(token, handler.authKey)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	var createRequest model.CreateShortRequest
 	if err = json.Unmarshal(buf.Bytes(), &createRequest); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -71,7 +112,7 @@ func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http
 		return
 	}
 
-	shortURL, err := handler.service.Create(createRequest.URL)
+	shortURL, err := handler.service.Create(createRequest.URL, userID)
 	isUniqueConstraintViolation := errors.Is(err, postgres.ErrUniqueIndexConstraint)
 	if err != nil && !isUniqueConstraintViolation {
 		http.Error(res, err.Error(), http.StatusBadRequest)

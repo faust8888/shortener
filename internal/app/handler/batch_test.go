@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"github.com/faust8888/shortener/internal/app/model"
+	"github.com/faust8888/shortener/internal/app/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -24,11 +25,11 @@ func TestCreateWithBatch(t *testing.T) {
 		{
 			name: "Successfully created Short URLs with batch",
 			batch: []model.CreateShortRequestBatchItemRequest{
-				model.CreateShortRequestBatchItemRequest{
+				{
 					CorrelationID: "1",
 					OriginalURL:   "https://yandex.ru",
 				},
-				model.CreateShortRequestBatchItemRequest{
+				{
 					CorrelationID: "2",
 					OriginalURL:   "https://google.com",
 				},
@@ -45,6 +46,7 @@ func TestCreateWithBatch(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
+			assert.NotEmpty(t, security.GetToken(resp.Cookies()))
 
 			var batchResponse []model.CreateShortRequestBatchItemResponse
 			_ = json.Unmarshal(resp.Body(), &batchResponse)

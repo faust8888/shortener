@@ -13,6 +13,7 @@ const (
 	LoggingLevelFlag     = "l"
 	StorageFilePathFlag  = "f"
 	DataSourceNameFlag   = "d"
+	AuthKeyNameFlag      = "k"
 	HashKeyURLQueryParam = "hashKeyURL"
 )
 
@@ -22,6 +23,7 @@ type Config struct {
 	LoggingLevel    string `env:"LOGGING_LEVEL"`
 	StorageFilePath string `env:"FILE_STORAGE_PATH"`
 	DataSourceName  string `env:"DATABASE_DSN"`
+	AuthKey         string `env:"AUTH_KEY"`
 }
 
 func Create() *Config {
@@ -32,6 +34,7 @@ func Create() *Config {
 	setFlag(&cfg.LoggingLevel, LoggingLevelFlag, "INFO", "Level of logging to use")
 	setFlag(&cfg.StorageFilePath, StorageFilePathFlag, "./storage.txt", "Path to the storage file")
 	setFlag(&cfg.DataSourceName, DataSourceNameFlag, "", "URL to the running PostgreSQL")
+	setFlag(&cfg.AuthKey, AuthKeyNameFlag, "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8", "Auth Key for authentication")
 	flag.Parse()
 
 	err := env.Parse(&cfg)

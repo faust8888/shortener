@@ -6,6 +6,7 @@
 *.dylib
 prof.out
 storage.txt
+cookies.txt
 
 # Test binary, built with `go test -c`
 *.test
