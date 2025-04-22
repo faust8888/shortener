@@ -70,6 +70,16 @@ func (s *Shortener) CreateWithBatch(batch []model.CreateShortRequestBatchItemReq
 	return result, nil
 }
 
+func (s *Shortener) DeleteAsync(ids []string, userID string) error {
+	go func(ids []string) {
+		err := s.repository.DeleteAll(ids, userID)
+		if err != nil {
+			logger.Log.Info("couldn't delete URLs")
+		}
+	}(ids)
+	return nil
+}
+
 func CreateShortener(s repository.Repository, baseShortURL string) *Shortener {
 	return &Shortener{repository: s, baseShortURL: baseShortURL}
 }

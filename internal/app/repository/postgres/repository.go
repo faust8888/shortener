@@ -8,10 +8,12 @@ import (
 	"github.com/faust8888/shortener/internal/app/config"
 	"github.com/faust8888/shortener/internal/app/model"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/lib/pq"
 	"time"
 )
 
 var ErrUniqueIndexConstraint = errors.New("full_url unique index constraint violation")
+var ErrRecordWasMarkedAsDeleted = errors.New("is_deleted is true for the record")
 
 type Repository struct {
 	db           *sql.DB
@@ -37,17 +39,21 @@ func (r *Repository) FindByHash(hash string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	query := `
-        SELECT full_url
+        SELECT full_url, is_deleted
         FROM shortener
         WHERE short_url = $1
     `
 	var fullURL string
-	err := r.db.QueryRowContext(ctx, query, hash).Scan(&fullURL)
+	var isDeleted bool
+	err := r.db.QueryRowContext(ctx, query, hash).Scan(&fullURL, &isDeleted)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", fmt.Errorf("short url not found for %s", hash)
 		}
 		return "", fmt.Errorf("failed to find short url by hash: %v", err)
+	}
+	if isDeleted {
+		return "", ErrRecordWasMarkedAsDeleted
 	}
 	return fullURL, nil
 }
@@ -103,6 +109,23 @@ func (r *Repository) SaveAll(batch map[string]model.CreateShortDTO, userID strin
 	if err != nil {
 		return fmt.Errorf("postgres.repository.saveAll.commit - %w", err)
 	}
+	return nil
+}
+
+func (r *Repository) DeleteAll(shortURLs []string, userID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	query := `
+        UPDATE shortener SET is_deleted = true WHERE user_id = $1 AND short_url = ANY($2::text[])
+    `
+	rows, err := r.db.QueryContext(ctx, query, userID, pq.Array(shortURLs))
+	if err != nil {
+		return fmt.Errorf("postgres.repository.DeleteAll: %w", err)
+	}
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("postgres.repository.DeleteAll: error during row iteration: %w", err)
+	}
+	defer rows.Close()
 	return nil
 }
 

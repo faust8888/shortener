@@ -15,6 +15,7 @@ type route interface {
 	FindByHash(res http.ResponseWriter, req *http.Request)
 	FindByUserID(res http.ResponseWriter, req *http.Request)
 	Ping(res http.ResponseWriter, req *http.Request)
+	Delete(res http.ResponseWriter, req *http.Request)
 }
 
 func Create(r route) *chi.Mux {
@@ -27,5 +28,6 @@ func Create(r route) *chi.Mux {
 	router.Get("/{"+config.HashKeyURLQueryParam+"}", r.FindByHash)
 	router.Get("/api/user/urls", r.FindByUserID)
 	router.Get("/ping", r.Ping)
+	router.Delete("/api/user/urls", r.Delete)
 	return router
 }

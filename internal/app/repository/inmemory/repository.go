@@ -64,6 +64,10 @@ func (r *Repository) Ping() (bool, error) {
 	return true, nil
 }
 
+func (r *Repository) DeleteAll(shortURLs []string, userID string) error {
+	return nil
+}
+
 func NewInMemoryRepository(cfg *config.Config) *Repository {
 	urlBucket := make(map[string]string)
 	userBucket := make(map[string]map[string]struct{})

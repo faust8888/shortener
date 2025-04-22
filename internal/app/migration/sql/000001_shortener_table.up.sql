@@ -3,6 +3,7 @@ CREATE TABLE shortener (
     short_url VARCHAR(255) NOT NULL,
     full_url VARCHAR(255) NOT NULL,
     user_id VARCHAR(255),
+    is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

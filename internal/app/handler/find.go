@@ -2,9 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/faust8888/shortener/internal/app/config"
 	"github.com/faust8888/shortener/internal/app/model"
+	"github.com/faust8888/shortener/internal/app/repository/postgres"
 	"github.com/faust8888/shortener/internal/app/security"
 	"github.com/go-chi/chi/v5"
 	"net/http"
@@ -25,6 +27,10 @@ type finder interface {
 func (handler *find) FindByHash(res http.ResponseWriter, req *http.Request) {
 	searchedHashURL := chi.URLParam(req, config.HashKeyURLQueryParam)
 	fullURL, err := handler.service.FindByHash(searchedHashURL)
+	if errors.Is(err, postgres.ErrRecordWasMarkedAsDeleted) {
+		res.WriteHeader(http.StatusGone)
+		return
+	}
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusNotFound)
 	}

@@ -7,5 +7,6 @@ type Repository interface {
 	FindByHash(hashURL string) (string, error)
 	FindAllByUserID(userID string) ([]model.FindURLByUserIDResponse, error)
 	SaveAll(batch map[string]model.CreateShortDTO, userID string) error
+	DeleteAll(shortURLs []string, userID string) error
 	Ping() (bool, error)
 }

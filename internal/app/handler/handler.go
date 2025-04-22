@@ -11,6 +11,7 @@ type Handler struct {
 	batch
 	find
 	ping
+	delete
 }
 
 func Create(s *service.Shortener, pingChecker PingChecker, cfg *config.Config) *Handler {
@@ -20,5 +21,6 @@ func Create(s *service.Shortener, pingChecker PingChecker, cfg *config.Config) *
 		batch:          batch{service: s, authKey: cfg.AuthKey},
 		find:           find{service: s, authKey: cfg.AuthKey},
 		ping:           ping{pingChecker},
+		delete:         delete{service: s, authKey: cfg.AuthKey},
 	}
 }
