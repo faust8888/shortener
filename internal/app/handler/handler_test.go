@@ -5,6 +5,7 @@ import (
 	"github.com/faust8888/shortener/internal/app/mocks"
 	"github.com/faust8888/shortener/internal/app/repository/inmemory"
 	"github.com/faust8888/shortener/internal/app/route"
+	"github.com/faust8888/shortener/internal/app/security"
 	"github.com/faust8888/shortener/internal/app/service"
 	"github.com/go-resty/resty/v2"
 	"github.com/golang/mock/gomock"
@@ -46,6 +47,15 @@ func createPingCheckerMock(ctrl *gomock.Controller) *mocks.MockPingChecker {
 	pingChecker := mocks.NewMockPingChecker(ctrl)
 	pingChecker.EXPECT().Ping().AnyTimes().Return(true, nil)
 	return pingChecker
+}
+
+func getTokenFromResponse(res *resty.Response) string {
+	for _, cookie := range res.Cookies() {
+		if cookie.Name == security.AuthorizationTokenName {
+			return cookie.Value
+		}
+	}
+	return ""
 }
 
 type RequestHeader struct {

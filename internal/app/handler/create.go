@@ -30,7 +30,7 @@ func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	token := security.GetToken(req.Cookies())
+	token := security.GetToken(req)
 	if token == "" {
 		token, err = security.BuildToken(handler.authKey)
 		if err != nil {
@@ -83,7 +83,7 @@ func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http
 		return
 	}
 
-	token := security.GetToken(req.Cookies())
+	token := security.GetToken(req)
 	if token == "" {
 		token, err = security.BuildToken(handler.authKey)
 		if err != nil {

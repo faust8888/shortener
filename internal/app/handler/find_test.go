@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"github.com/faust8888/shortener/internal/app/model"
-	"github.com/faust8888/shortener/internal/app/security"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"net/http"
@@ -43,7 +42,7 @@ func TestFindByHash(t *testing.T) {
 			var findByUserIDResponse []model.FindURLByUserIDResponse
 			_ = json.Unmarshal(getFullURLResponse.Body(), &findByUserIDResponse)
 
-			assert.NotEmpty(t, security.GetToken(shortURLResponse.Cookies()))
+			assert.NotEmpty(t, getTokenFromResponse(shortURLResponse))
 			assert.Equal(t, test.want.code, getFullURLResponse.StatusCode())
 
 			assert.Equal(t, test.targetFullURL, getFullURLResponse.Header().Get(LocationHeader))
@@ -84,7 +83,7 @@ func TestFindByUserID(t *testing.T) {
 			var findByUserIDResponse []model.FindURLByUserIDResponse
 			_ = json.Unmarshal(getFullURLResponse.Body(), &findByUserIDResponse)
 
-			assert.NotEmpty(t, security.GetToken(shortURLResponse.Cookies()))
+			assert.NotEmpty(t, getTokenFromResponse(shortURLResponse))
 			assert.Equal(t, test.want.code, getFullURLResponse.StatusCode())
 			assert.True(t, containsShortURL(findByUserIDResponse, string(shortURLResponse.Body()), test.targetFullURL))
 		})
@@ -123,7 +122,7 @@ func TestGetWithCompress(t *testing.T) {
 
 			getFullURLResponse, _ := getFullURLRequest.Send()
 
-			assert.NotEmpty(t, security.GetToken(shortURLResponse.Cookies()))
+			assert.NotEmpty(t, getTokenFromResponse(shortURLResponse))
 			assert.Equal(t, test.want.code, getFullURLResponse.StatusCode())
 			assert.Equal(t, test.targetFullURL, getFullURLResponse.Header().Get(LocationHeader))
 		})

@@ -27,25 +27,20 @@ type Claims struct {
 	UserID string
 }
 
-func GetToken(cookies []*http.Cookie) string {
-	for _, cookie := range cookies {
-		if cookie.Name == AuthorizationTokenName {
-			return cookie.Value
-		}
+func GetToken(req *http.Request) string {
+	tokenCookie, err := req.Cookie(AuthorizationTokenName)
+	if tokenCookie != nil && err == nil {
+		return tokenCookie.Value
 	}
 	return ""
 }
 
-func GetUserID(encryptedToken string, encodedKey string) (string, error) {
-	if encryptedToken == "" {
+func GetUserID(token string, encodedKey string) (string, error) {
+	if token == "" {
 		return "", nil
 	}
-	token, err := decrypt(encryptedToken, encodedKey)
-	if err != nil {
-		return "", fmt.Errorf("get user id: %w", err)
-	}
 	claims := &Claims{}
-	_, err = jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
+	_, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
 		return []byte(encodedKey), nil
 	})
 	if err != nil {
@@ -72,11 +67,7 @@ func BuildToken(key string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("sign token: %w", err)
 	}
-	encryptedToken, err := encrypt(token, key)
-	if err != nil {
-		return "", fmt.Errorf("encrypt: %w", err)
-	}
-	return encryptedToken, nil
+	return token, nil
 }
 
 func CreateHashForURL(fullURL string) (string, error) {
@@ -112,36 +103,6 @@ func encrypt(token string, key string) (string, error) {
 	nonce := keyHash[len(keyHash)-aesgcm.NonceSize():]
 	encryptedToken := aesgcm.Seal(nil, nonce, []byte(token), nil)
 	return hex.EncodeToString(encryptedToken), nil
-}
-
-func decrypt(encryptedToken string, encodedKey string) (string, error) {
-	decodedKey, err := hex.DecodeString(encodedKey)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: decode keyHash - %w", err)
-	}
-
-	keyHash := sha256.Sum256(decodedKey)
-	aesblock, err := aes.NewCipher(keyHash[:])
-	if err != nil {
-		return "", fmt.Errorf("decrypt: new cipher - %w", err)
-	}
-
-	aesgcm, err := cipher.NewGCM(aesblock)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: new gcm - %w", err)
-	}
-
-	nonce := keyHash[len(keyHash)-aesgcm.NonceSize():]
-	decodedToken, err := hex.DecodeString(encryptedToken)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: decode encryptedToken - %w", err)
-	}
-
-	decryptedToken, err := aesgcm.Open(nil, nonce, decodedToken, nil)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: %w", err)
-	}
-	return string(decryptedToken), nil
 }
 
 func generateUserID() (string, error) {

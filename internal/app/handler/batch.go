@@ -26,7 +26,7 @@ func (handler *batch) CreateWithBatch(res http.ResponseWriter, req *http.Request
 		return
 	}
 
-	token := security.GetToken(req.Cookies())
+	token := security.GetToken(req)
 	if token == "" {
 		token, err = security.BuildToken(handler.authKey)
 		if err != nil {

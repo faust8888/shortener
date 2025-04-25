@@ -39,7 +39,7 @@ func (handler *find) FindByHash(res http.ResponseWriter, req *http.Request) {
 }
 
 func (handler *find) FindByUserID(res http.ResponseWriter, req *http.Request) {
-	token := security.GetToken(req.Cookies())
+	token := security.GetToken(req)
 	userID, err := security.GetUserID(token, handler.authKey)
 	if token == "" {
 		token, err = security.BuildToken(handler.authKey)

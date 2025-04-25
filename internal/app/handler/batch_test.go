@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"github.com/faust8888/shortener/internal/app/model"
-	"github.com/faust8888/shortener/internal/app/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -46,7 +45,7 @@ func TestCreateWithBatch(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
-			assert.NotEmpty(t, security.GetToken(resp.Cookies()))
+			assert.NotEmpty(t, getTokenFromResponse(resp))
 
 			var batchResponse []model.CreateShortRequestBatchItemResponse
 			_ = json.Unmarshal(resp.Body(), &batchResponse)

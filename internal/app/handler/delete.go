@@ -17,7 +17,7 @@ type deleter interface {
 }
 
 func (handler *delete) Delete(res http.ResponseWriter, req *http.Request) {
-	token := security.GetToken(req.Cookies())
+	token := security.GetToken(req)
 	if token == "" {
 		res.WriteHeader(http.StatusUnauthorized)
 		return
