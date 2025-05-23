@@ -46,7 +46,7 @@ func TestPost(t *testing.T) {
 			want: want{
 				code:         http.StatusBadRequest,
 				isError:      true,
-				errorMessage: "invalid url\n",
+				errorMessage: "hash for url: invalid url\n",
 			},
 		},
 	}
@@ -56,6 +56,7 @@ func TestPost(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
+			assert.NotEmpty(t, getTokenFromResponse(resp))
 
 			if !test.want.isError {
 				assert.Regexp(t, test.want.responseRegexp, string(resp.Body()))
@@ -113,6 +114,7 @@ func TestPostWithJson(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
+			assert.NotEmpty(t, getTokenFromResponse(resp))
 
 			if !test.want.isError {
 				assert.Regexp(t, test.want.responseRegexp, string(resp.Body()))
@@ -158,6 +160,7 @@ func TestPostWithJsonCompress(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
+			assert.NotEmpty(t, getTokenFromResponse(resp))
 
 			if !test.want.isError {
 				assert.Regexp(t, test.want.responseRegexp, string(resp.Body()))

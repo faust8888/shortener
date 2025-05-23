@@ -24,11 +24,11 @@ func TestCreateWithBatch(t *testing.T) {
 		{
 			name: "Successfully created Short URLs with batch",
 			batch: []model.CreateShortRequestBatchItemRequest{
-				model.CreateShortRequestBatchItemRequest{
+				{
 					CorrelationID: "1",
 					OriginalURL:   "https://yandex.ru",
 				},
-				model.CreateShortRequestBatchItemRequest{
+				{
 					CorrelationID: "2",
 					OriginalURL:   "https://google.com",
 				},
@@ -45,6 +45,7 @@ func TestCreateWithBatch(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, resp.StatusCode())
+			assert.NotEmpty(t, getTokenFromResponse(resp))
 
 			var batchResponse []model.CreateShortRequestBatchItemResponse
 			_ = json.Unmarshal(resp.Body(), &batchResponse)

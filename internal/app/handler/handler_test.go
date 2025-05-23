@@ -5,6 +5,7 @@ import (
 	"github.com/faust8888/shortener/internal/app/mocks"
 	"github.com/faust8888/shortener/internal/app/repository/inmemory"
 	"github.com/faust8888/shortener/internal/app/route"
+	"github.com/faust8888/shortener/internal/app/security"
 	"github.com/faust8888/shortener/internal/app/service"
 	"github.com/go-resty/resty/v2"
 	"github.com/golang/mock/gomock"
@@ -20,8 +21,8 @@ func startTestServer(t *testing.T) *httptest.Server {
 	pingChecker := createPingCheckerMock(ctrl)
 
 	cfg := config.Create()
-	shortener := service.CreateShortener(inmemory.NewInMemoryRepository(cfg.StorageFilePath), cfg.BaseShortURL)
-	handler := Create(shortener, pingChecker)
+	shortener := service.CreateShortener(inmemory.NewInMemoryRepository(cfg), cfg.BaseShortURL)
+	handler := Create(shortener, pingChecker, cfg)
 
 	return httptest.NewServer(route.Create(handler))
 }
@@ -46,6 +47,15 @@ func createPingCheckerMock(ctrl *gomock.Controller) *mocks.MockPingChecker {
 	pingChecker := mocks.NewMockPingChecker(ctrl)
 	pingChecker.EXPECT().Ping().AnyTimes().Return(true, nil)
 	return pingChecker
+}
+
+func getTokenFromResponse(res *resty.Response) string {
+	for _, cookie := range res.Cookies() {
+		if cookie.Name == security.AuthorizationTokenName {
+			return cookie.Value
+		}
+	}
+	return ""
 }
 
 type RequestHeader struct {

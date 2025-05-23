@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/faust8888/shortener/internal/middleware/logger"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"os"
 )
@@ -16,11 +15,11 @@ type Backup struct {
 	scanner *bufio.Scanner
 }
 
-func (p *Backup) Write(urlHash string, fullURL string) error {
-	backupEvent := &createShortBackupEvent{
-		UUID:        uuid.New(),
+func (p *Backup) Write(urlHash, fullURL, userID string) error {
+	backupEvent := &CreateShortBackupEvent{
 		ShortURL:    urlHash,
 		OriginalURL: fullURL,
+		UserID:      userID,
 	}
 	data, err := json.Marshal(&backupEvent)
 	if err != nil {
@@ -35,9 +34,9 @@ func (p *Backup) Write(urlHash string, fullURL string) error {
 	return p.writer.Flush()
 }
 
-func (p *Backup) RecoverTo(bucket map[string]string) {
+func (p *Backup) RecoverTo(bucket map[string]string, userBucket map[string]map[string]struct{}) {
 	for p.scanner.Scan() {
-		event := createShortBackupEvent{}
+		event := CreateShortBackupEvent{}
 		err := json.Unmarshal(p.scanner.Bytes(), &event)
 		if err != nil {
 			logger.Log.Error("failed to unmarshal a backup event", zap.Error(err))
@@ -45,6 +44,12 @@ func (p *Backup) RecoverTo(bucket map[string]string) {
 			logger.Log.Info("recovering backup event", zap.Any("event", event))
 		}
 		bucket[event.ShortURL] = event.OriginalURL
+		if _, exists := userBucket[event.UserID]; exists {
+			userBucket[event.UserID][event.ShortURL] = struct{}{}
+		} else {
+			userBucket[event.UserID] = make(map[string]struct{})
+			userBucket[event.UserID][event.ShortURL] = struct{}{}
+		}
 	}
 }
 
@@ -61,13 +66,13 @@ func NewBackup(filename string) (*Backup, error) {
 	}, nil
 }
 
-type createShortBackupEvent struct {
-	UUID        uuid.UUID `json:"uuid" validate:"required,uuid"`
-	ShortURL    string    `json:"short_url" validate:"required,short_url"`
-	OriginalURL string    `json:"original_url" validate:"required,original_url"`
+type CreateShortBackupEvent struct {
+	ShortURL    string `json:"short_url" validate:"required,short_url"`
+	OriginalURL string `json:"original_url" validate:"required,original_url"`
+	UserID      string `json:"user_id" validate:"required,user_id"`
 }
 
-func (e createShortBackupEvent) String() string {
-	return fmt.Sprintf(`{"UUID": "%s", "ShortURL": "%s", "OriginalURL": "%s"}`,
-		e.UUID, e.ShortURL, e.OriginalURL)
+func (e CreateShortBackupEvent) String() string {
+	return fmt.Sprintf(`{"ShortURL": "%s", "OriginalURL": "%s", "UserID": "%s"}`,
+		e.ShortURL, e.OriginalURL, e.UserID)
 }

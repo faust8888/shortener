@@ -26,13 +26,13 @@ func main() {
 		if err != nil {
 			logger.Log.Fatal("migration.run", zap.Error(err))
 		}
-		repo = postgres.NewPostgresRepository(cfg.DataSourceName)
+		repo = postgres.NewPostgresRepository(cfg)
 	} else {
-		repo = inmemory.NewInMemoryRepository(cfg.StorageFilePath)
+		repo = inmemory.NewInMemoryRepository(cfg)
 	}
 
 	shortener := service.CreateShortener(repo, cfg.BaseShortURL)
-	h := handler.Create(shortener, repo)
+	h := handler.Create(shortener, repo, cfg)
 	logger.Log.Info("Starting server", zap.String("address", cfg.ServerAddress))
 	if err := http.ListenAndServe(cfg.ServerAddress, route.Create(h)); err != nil {
 		panic(err)

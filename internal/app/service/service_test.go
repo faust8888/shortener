@@ -19,28 +19,31 @@ const (
 
 func TestCreatingShortURLAndFinding(t *testing.T) {
 	cfg := config.Create()
-	service := CreateShortener(inmemory.NewInMemoryRepository(cfg.StorageFilePath), cfg.BaseShortURL)
+	service := CreateShortener(inmemory.NewInMemoryRepository(cfg), cfg.BaseShortURL)
 	tests := []struct {
 		name    string
 		fullURL string
+		userID  string
 	}{
 		{
-			name:    "Successfully Create and Find URL",
+			name:    "Successfully Create and FindByHash URL",
 			fullURL: "https://ya.ru",
+			userID:  "123456",
 		},
 		{
-			name:    "Successfully Create and Find URL (long url)",
+			name:    "Successfully Create and FindByHash URL (long url)",
 			fullURL: "https://sven.ru/qwer/yrue/123/0393/kdjdksadasnjda/923839238/asjasjdi",
+			userID:  "123456",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			shortURL, err := service.Create(test.fullURL)
+			shortURL, err := service.Create(test.fullURL, test.userID)
 			require.NoError(t, err, CreateShortURLErrorMessage)
 			parsedURL, _ := url.Parse(shortURL)
 
 			hashURL := strings.TrimPrefix(parsedURL.Path, "/")
-			returnedFullURL, err := service.Find(hashURL)
+			returnedFullURL, err := service.FindByHash(hashURL)
 
 			require.NoError(t, err, GetFullURLErrorMessage)
 			assert.Equal(t, test.fullURL, returnedFullURL, URLNotMatchErrorMessage)
@@ -50,13 +53,13 @@ func TestCreatingShortURLAndFinding(t *testing.T) {
 
 func TestCouldNotFindFullURL(t *testing.T) {
 	cfg := config.Create()
-	shortener := CreateShortener(inmemory.NewInMemoryRepository(cfg.StorageFilePath), cfg.ServerAddress)
-	_, err := shortener.Create(TestURL)
+	shortener := CreateShortener(inmemory.NewInMemoryRepository(cfg), cfg.ServerAddress)
+	_, err := shortener.Create(TestURL, "123456")
 	require.NoError(t, err, CreateShortURLErrorMessage)
 
-	fullURL, err := shortener.Find("not_existing_hash_key")
+	fullURL, err := shortener.FindByHash("not_existing_hash_key")
 
 	require.Error(t, err, "Expected error when trying to find full URL")
-	require.Equal(t, "short url not found for not_existing_hash_key", err.Error())
+	require.Equal(t, "find by hash: short url not found for not_existing_hash_key", err.Error())
 	require.Equal(t, "", fullURL)
 }

@@ -13,12 +13,14 @@ func TestInMemoryStorageFindByHashURLAndSave(t *testing.T) {
 		urlHashForSaving    string
 		urlHashForSearching string
 		fullURL             string
+		userID              string
 		wantErr             bool
 	}{
 		{
 			name:                "Successfully saved",
 			urlHashForSaving:    "qwerty12345",
 			urlHashForSearching: "qwerty12345",
+			userID:              "12345",
 			fullURL:             "https://yandex.ru",
 			wantErr:             false,
 		},
@@ -26,15 +28,16 @@ func TestInMemoryStorageFindByHashURLAndSave(t *testing.T) {
 			name:                "Not found full URL with the wrong hash URL",
 			urlHashForSaving:    "qwerty12345",
 			urlHashForSearching: "asdfgh6789",
+			userID:              "12345",
 			fullURL:             "https://yandex.ru",
 			wantErr:             true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewInMemoryRepository(config.Create().StorageFilePath)
+			s := NewInMemoryRepository(config.Create())
 
-			s.Save(tt.urlHashForSaving, tt.fullURL)
+			s.Save(tt.urlHashForSaving, tt.fullURL, tt.userID)
 			returnedFullURL, err := s.FindByHash(tt.urlHashForSearching)
 
 			if tt.wantErr {

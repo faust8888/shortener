@@ -27,6 +27,11 @@ type CreateShortRequestBatchItemResponse struct {
 	ShortURL      string `json:"short_url" validate:"required,short_url"`
 }
 
+type FindURLByUserIDResponse struct {
+	ShortURL    string `json:"short_url" validate:"required,short_url"`
+	OriginalURL string `json:"original_url" validate:"required,original_url"`
+}
+
 type CreateShortDTO struct {
 	OriginalURL string
 	ShortURL    string
