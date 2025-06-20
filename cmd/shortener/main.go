@@ -12,6 +12,7 @@ import (
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 	"net/http"
+	_ "net/http/pprof"
 )
 
 func main() {

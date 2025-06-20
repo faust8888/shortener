@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/faust8888/shortener/internal/app/model"
@@ -19,24 +18,18 @@ type batchSaver interface {
 }
 
 func (handler *batch) CreateWithBatch(res http.ResponseWriter, req *http.Request) {
-	var buf bytes.Buffer
-	_, err := buf.ReadFrom(req.Body)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	token := security.GetToken(req)
 	if token == "" {
-		token, err = security.BuildToken(handler.authKey)
+		newToken, err := security.BuildToken(handler.authKey)
 		if err != nil {
 			http.Error(res, fmt.Sprintf("build token: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 		http.SetCookie(res, &http.Cookie{
 			Name:  security.AuthorizationTokenName,
-			Value: token,
+			Value: newToken,
 		})
+		token = newToken
 	}
 	userID, err := security.GetUserID(token, handler.authKey)
 	if err != nil {
@@ -44,9 +37,10 @@ func (handler *batch) CreateWithBatch(res http.ResponseWriter, req *http.Request
 		return
 	}
 
+	decoder := json.NewDecoder(http.MaxBytesReader(nil, req.Body, 10<<20))
 	var batchRequest []model.CreateShortRequestBatchItemRequest
-	if err = json.Unmarshal(buf.Bytes(), &batchRequest); err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+	if err = decoder.Decode(&batchRequest); err != nil {
+		http.Error(res, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 	batchResponse, err := handler.service.CreateWithBatch(batchRequest, userID)
