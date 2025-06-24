@@ -17,6 +17,34 @@ type batchSaver interface {
 	CreateWithBatch(batch []model.CreateShortRequestBatchItemRequest, userID string) ([]model.CreateShortRequestBatchItemResponse, error)
 }
 
+// CreateWithBatch обрабатывает входящий POST-запрос с пакетом данных для создания коротких ссылок.
+//
+// Метод:
+// - Проверяет или генерирует токен авторизации.
+// - Извлекает идентификатор пользователя из токена.
+// - Декодирует JSON-тело запроса.
+// - Передаёт данные сервису для сохранения.
+// - Возвращает JSON-ответ со списком созданных ссылок.
+//
+// Пример тела запроса:
+//
+//	[
+//	  {"correlation_id": "id1", "original_url": "http://example.com/1"},
+//	  {"correlation_id": "id2", "original_url": "http://example.com/2"}
+//	]
+//
+// Ответ:
+//
+//	[
+//	  {"correlation_id": "id1", "short_url": "http://your-shortener.com/abc"},
+//	  {"correlation_id": "id2", "short_url": "http://your-shortener.com/def"}
+//	]
+//
+// Возможные HTTP-статусы:
+// - 201 Created — успешно созданы.
+// - 400 Bad Request — невалидное тело запроса.
+// - 401 Unauthorized — отсутствующий или недействительный токен.
+// - 500 Internal Server Error — внутренняя ошибка сервера.
 func (handler *batch) CreateWithBatch(res http.ResponseWriter, req *http.Request) {
 	token := security.GetToken(req)
 	if token == "" {

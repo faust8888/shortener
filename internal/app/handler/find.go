@@ -24,6 +24,19 @@ type finder interface {
 	FindAllByUserID(userID string) ([]model.FindURLByUserIDResponse, error)
 }
 
+// FindByHash обрабатывает GET-запрос на редирект по короткой ссылке.
+//
+// Метод:
+// - Извлекает хэш из пути запроса.
+// - Передаёт хэш сервису для поиска оригинального URL.
+// - Возвращает редирект или соответствующую ошибку.
+//
+// Путь: /{hash}
+//
+// Возможные HTTP-статусы:
+// - 307 Temporary Redirect — успешный редирект.
+// - 404 Not Found — ссылка не найдена.
+// - 410 Gone — ссылка была удалена.
 func (handler *find) FindByHash(res http.ResponseWriter, req *http.Request) {
 	searchedHashURL := chi.URLParam(req, config.HashKeyURLQueryParam)
 	fullURL, err := handler.service.FindByHash(searchedHashURL)
@@ -38,6 +51,26 @@ func (handler *find) FindByHash(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
+// FindByUserID обрабатывает GET-запрос для получения всех сокращённых ссылок текущего пользователя.
+//
+// Метод:
+// - Проверяет или генерирует токен авторизации.
+// - Извлекает идентификатор пользователя из токена.
+// - Передаёт запрос сервису для получения списка ссылок.
+// - Возвращает JSON-ответ со списком ссылок.
+//
+// Пример ответа:
+//
+//	[
+//	  {"short_url": "http://localhost:8080/abc", "original_url": "http://example.com"},
+//	  {"short_url": "http://localhost:8080/def", "original_url": "http://example.org"}
+//	]
+//
+// Возможные HTTP-статусы:
+// - 200 OK — успешно возвращён список ссылок.
+// - 204 No Content — у пользователя нет сохранённых ссылок.
+// - 401 Unauthorized — отсутствующий или недействительный токен.
+// - 500 Internal Server Error — внутренняя ошибка сервера.
 func (handler *find) FindByUserID(res http.ResponseWriter, req *http.Request) {
 	token := security.GetToken(req)
 	userID, err := security.GetUserID(token, handler.authKey)

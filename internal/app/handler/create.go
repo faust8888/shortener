@@ -23,6 +23,21 @@ type creator interface {
 	Create(fullURL string, userID string) (string, error)
 }
 
+// Create обрабатывает POST-запрос на создание короткой ссылки.
+//
+// Метод:
+// - Читает тело запроса как plain text.
+// - Проверяет или генерирует токен авторизации.
+// - Извлекает userID из токена.
+// - Передаёт данные сервису для сохранения.
+// - Возвращает короткий URL в теле ответа.
+//
+// Возможные HTTP-статусы:
+// - 201 Created — успешно создано.
+// - 400 Bad Request — невалидное тело запроса.
+// - 401 Unauthorized — отсутствующий или недействительный токен.
+// - 409 Conflict — дублирующаяся запись.
+// - 500 Internal Server Error — внутренняя ошибка сервера.
 func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
 	requestBody, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -75,6 +90,29 @@ type createWithJSON struct {
 	authKey string
 }
 
+// CreateWithJSON обрабатывает POST-запрос с JSON-телом вида {"url": "http://example.com"}.
+//
+// Метод:
+// - Читает и парсит JSON-запрос.
+// - Проверяет или генерирует токен авторизации.
+// - Извлекает userID из токена.
+// - Передаёт данные сервису для сохранения.
+// - Возвращает JSON-ответ с результатом.
+//
+// Пример тела запроса:
+//
+//	{"url": "http://example.com"}
+//
+// Ответ:
+//
+//	{"result": "http://your-shortener.com/abc"}
+//
+// Возможные HTTP-статусы:
+// - 201 Created — успешно создано.
+// - 400 Bad Request — невалидное тело запроса.
+// - 401 Unauthorized — отсутствующий или недействительный токен.
+// - 409 Conflict — дублирующаяся запись.
+// - 500 Internal Server Error — внутренняя ошибка сервера.
 func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http.Request) {
 	var buf bytes.Buffer
 	_, err := buf.ReadFrom(req.Body)

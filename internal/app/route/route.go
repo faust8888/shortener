@@ -19,6 +19,21 @@ type route interface {
 	Delete(res http.ResponseWriter, req *http.Request)
 }
 
+// Create инициализирует HTTP-роутер на основе chi и регистрирует маршруты,
+// связывая каждый маршрут с соответствующим методом интерфейса route.
+//
+// Поддерживаемые маршруты:
+// - POST /api/shorten          → CreateWithJSON
+// - POST /api/shorten/batch    → CreateWithBatch
+// - POST /                     → Create
+// - GET /{hash}                → FindByHash
+// - GET /api/user/urls         → FindByUserID
+// - GET /ping                  → Ping
+// - DELETE /api/user/urls      → Delete
+// - /debug/pprof/*             → pprof (для профилирования)
+//
+// Возвращает:
+//   - *chi.Mux: готовый к использованию HTTP-роутер.
 func Create(r route) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(gzip.NewMiddleware)
