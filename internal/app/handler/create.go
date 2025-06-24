@@ -14,6 +14,8 @@ import (
 	"net/http"
 )
 
+// Create — это HTTP-обработчик для создания короткой ссылки из обычного текста.
+// Использует интерфейс creator для сохранения данных и требует ключ аутентификации.
 type Create struct {
 	service creator
 	authKey string
@@ -85,6 +87,8 @@ func (handler *Create) CreateLink(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// CreateWithJSON — HTTP-обработчик для создания короткой ссылки через JSON.
+// Использует тот же интерфейс creator для сохранения данных.
 type CreateWithJSON struct {
 	service creator
 	authKey string

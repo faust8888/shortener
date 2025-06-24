@@ -9,12 +9,23 @@ import (
 	"os"
 )
 
+// Backup — это утилита для сохранения и восстановления коротких ссылок в файл.
+// Используется как простое решение для персистентности данных.
 type Backup struct {
-	file    *os.File
-	writer  *bufio.Writer
-	scanner *bufio.Scanner
+	file    *os.File       // Открытый файл для хранения бэкапа
+	writer  *bufio.Writer  // Писатель для записи данных в файл
+	scanner *bufio.Scanner // Сканер для чтения данных из файла
 }
 
+// Write записывает событие создания короткой ссылки в файл бэкапа.
+//
+// Параметры:
+//   - urlHash: хэш-ключ (короткий URL)
+//   - fullURL: оригинальный URL
+//   - userID: идентификатор пользователя
+//
+// Возвращает:
+//   - error: nil, если успешно, иначе — ошибку.
 func (p *Backup) Write(urlHash, fullURL, userID string) error {
 	backupEvent := &CreateShortBackupEvent{
 		ShortURL:    urlHash,
@@ -34,6 +45,11 @@ func (p *Backup) Write(urlHash, fullURL, userID string) error {
 	return p.writer.Flush()
 }
 
+// RecoverTo восстанавливает данные из файла бэкапа в указанное хранилище.
+//
+// Параметры:
+//   - bucket: карта для хранения пар shortURL → originalURL
+//   - userBucket: карта пользовательских ссылок
 func (p *Backup) RecoverTo(bucket map[string]string, userBucket map[string]map[string]struct{}) {
 	for p.scanner.Scan() {
 		event := CreateShortBackupEvent{}
@@ -53,6 +69,14 @@ func (p *Backup) RecoverTo(bucket map[string]string, userBucket map[string]map[s
 	}
 }
 
+// NewBackup создаёт новый экземпляр Backup на основе указанного файла.
+//
+// Параметр:
+//   - filename: имя файла для хранения бэкапа.
+//
+// Возвращает:
+//   - *Backup: готовый к использованию объект бэкапа.
+//   - error: nil, если успешно, иначе — ошибку.
 func NewBackup(filename string) (*Backup, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -66,12 +90,15 @@ func NewBackup(filename string) (*Backup, error) {
 	}, nil
 }
 
+// CreateShortBackupEvent — модель события, представляющего создание короткой ссылки.
+// Хранит информацию о коротком URL, оригинальном URL и пользователе.
 type CreateShortBackupEvent struct {
 	ShortURL    string `json:"short_url" validate:"required,short_url"`
 	OriginalURL string `json:"original_url" validate:"required,original_url"`
 	UserID      string `json:"user_id" validate:"required,user_id"`
 }
 
+// String возвращает строковое представление события.
 func (e CreateShortBackupEvent) String() string {
 	return fmt.Sprintf(`{"ShortURL": "%s", "OriginalURL": "%s", "UserID": "%s"}`,
 		e.ShortURL, e.OriginalURL, e.UserID)

@@ -7,6 +7,8 @@ import (
 	"net/http"
 )
 
+// Delete — это HTTP-обработчик для асинхронного удаления коротких ссылок.
+// Использует интерфейс deleter для выполнения операции удаления и требует ключ аутентификации.
 type Delete struct {
 	service deleter
 	authKey string

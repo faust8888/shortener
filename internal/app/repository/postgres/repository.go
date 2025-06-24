@@ -12,14 +12,30 @@ import (
 	"time"
 )
 
+// ErrUniqueIndexConstraint — ошибка, возникающая при попытке дублирования записи по full_url.
 var ErrUniqueIndexConstraint = errors.New("full_url unique index constraint violation")
+
+// ErrRecordWasMarkedAsDeleted — ошибка, указывающая, что запись была помечена как удалённая.
 var ErrRecordWasMarkedAsDeleted = errors.New("is_deleted is true for the record")
 
+// Repository — реализация repository.Repository на основе PostgreSQL.
+// Используется для хранения, поиска и удаления коротких ссылок в БД.
 type Repository struct {
-	db           *sql.DB
-	baseShortURL string
+	db           *sql.DB // Подключение к базе данных
+	baseShortURL string  // Базовый URL для формирования полного адреса
 }
 
+// Save сохраняет одну пару (hashURL -> fullURL) для указанного пользователя.
+//
+// Если запись уже существует — возвращает ErrUniqueIndexConstraint.
+//
+// Параметры:
+//   - urlHash: хэш-ключ для короткой ссылки.
+//   - fullURL: оригинальный URL.
+//   - userID: идентификатор пользователя.
+//
+// Возвращает:
+//   - error: nil, если успешно, иначе — ошибку.
 func (r *Repository) Save(urlHash string, fullURL string, userID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -35,6 +51,16 @@ func (r *Repository) Save(urlHash string, fullURL string, userID string) error {
 	return nil
 }
 
+// FindByHash находит оригинальный URL по его хэш-ключу.
+//
+// Также проверяет флаг is_deleted — если он установлен, возвращает ErrRecordWasMarkedAsDeleted.
+//
+// Параметр:
+//   - hash: хэш-ключ короткой ссылки.
+//
+// Возвращает:
+//   - string: оригинальный URL.
+//   - error: nil, если найдено и не удалено, иначе — соответствующую ошибку.
 func (r *Repository) FindByHash(hash string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -58,6 +84,16 @@ func (r *Repository) FindByHash(hash string) (string, error) {
 	return fullURL, nil
 }
 
+// FindAllByUserID возвращает все короткие ссылки, принадлежащие пользователю.
+//
+// Формирует полные URL на основе baseShortURL.
+//
+// Параметр:
+//   - userID: идентификатор пользователя.
+//
+// Возвращает:
+//   - []model.FindURLByUserIDResponse: список ссылок пользователя.
+//   - error: nil, если успешно, иначе — ошибку.
 func (r *Repository) FindAllByUserID(userID string) ([]model.FindURLByUserIDResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -89,6 +125,15 @@ func (r *Repository) FindAllByUserID(userID string) ([]model.FindURLByUserIDResp
 	return results, nil
 }
 
+// SaveAll сохраняет несколько ссылок за один раз (пакетная операция).
+// Выполняется в транзакции: если одна операция провалится — всё откатывается.
+//
+// Параметры:
+//   - batch: карта хэшей и DTO с данными о ссылках.
+//   - userID: идентификатор пользователя.
+//
+// Возвращает:
+//   - error: nil, если успешно, иначе — ошибку.
 func (r *Repository) SaveAll(batch map[string]model.CreateShortDTO, userID string) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -112,11 +157,21 @@ func (r *Repository) SaveAll(batch map[string]model.CreateShortDTO, userID strin
 	return nil
 }
 
+// DeleteAll асинхронно удаляет несколько коротких ссылок пользователя.
+// Метит их как удалённые (is_deleted = true).
+//
+// Параметры:
+//   - shortURLs: список идентификаторов (хэшей) ссылок для удаления.
+//   - userID: идентификатор пользователя.
+//
+// Возвращает:
+//   - error: nil, если запрос успешен, иначе — ошибку.
 func (r *Repository) DeleteAll(shortURLs []string, userID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	query := `
-        UPDATE shortener SET is_deleted = true WHERE user_id = $1 AND short_url = ANY($2::text[])
+        UPDATE shortener SET is_deleted = true 
+        WHERE user_id = $1 AND short_url = ANY($2::text[])
     `
 	rows, err := r.db.QueryContext(ctx, query, userID, pq.Array(shortURLs))
 	if err != nil {
@@ -129,6 +184,11 @@ func (r *Repository) DeleteAll(shortURLs []string, userID string) error {
 	return nil
 }
 
+// Ping проверяет доступность хранилища.
+//
+// Возвращает:
+//   - bool: true, если база доступна.
+//   - error: nil, если всё в порядке, иначе — ошибку.
 func (r *Repository) Ping() (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -138,6 +198,15 @@ func (r *Repository) Ping() (bool, error) {
 	return true, nil
 }
 
+// NewPostgresRepository создаёт новый экземпляр Repository, подключаясь к PostgreSQL.
+//
+// Паникует, если не может установить соединение.
+//
+// Параметр:
+//   - cfg: конфигурация приложения.
+//
+// Возвращает:
+//   - *Repository: готовый к использованию объект репозитория.
 func NewPostgresRepository(cfg *config.Config) *Repository {
 	db, err := sql.Open("pgx", cfg.DataSourceName)
 	if err != nil {

@@ -8,6 +8,8 @@ import (
 	"net/http"
 )
 
+// Batch — это HTTP-обработчик, предназначенный для обработки пакетного создания коротких ссылок.
+// Для сохранения данных используется интерфейс batchSaver, а для авторизации — authKey.
 type Batch struct {
 	service batchSaver
 	authKey string

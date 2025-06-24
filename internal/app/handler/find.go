@@ -12,8 +12,13 @@ import (
 	"net/http"
 )
 
+// LocationHeader — заголовок, используемый для указания URL-адреса редиректа.
 const LocationHeader = "Location"
 
+// Find — это HTTP-обработчик для поиска коротких ссылок.
+// Поддерживает:
+// - поиск по хэшу (редирект),
+// - получение всех ссылок пользователя.
 type Find struct {
 	service finder
 	authKey string

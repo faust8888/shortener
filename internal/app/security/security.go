@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// Константы, используемые в пакете.
 const (
 	// TokenExp — время жизни JWT-токена (по умолчанию 3 часа).
 	TokenExp = time.Hour * 3
@@ -23,6 +24,7 @@ const (
 	AuthorizationTokenName = "Authorization"
 )
 
+// Глобальные ошибки, используемые в пакете.
 var (
 	// ErrNoAuthorizationToken — ошибка, возникающая, когда токен отсутствует.
 	ErrNoAuthorizationToken = errors.New("authorization token is missed")
