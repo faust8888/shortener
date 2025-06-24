@@ -22,7 +22,7 @@ func startTestServer(t *testing.T) *httptest.Server {
 
 	cfg := config.Create()
 	shortener := service.CreateShortener(inmemory.NewInMemoryRepository(cfg), cfg.BaseShortURL)
-	handler := Create(shortener, pingChecker, cfg)
+	handler := CreateHandler(shortener, pingChecker, cfg)
 
 	return httptest.NewServer(route.Create(handler))
 }

@@ -33,7 +33,7 @@ func main() {
 	}
 
 	shortener := service.CreateShortener(repo, cfg.BaseShortURL)
-	h := handler.Create(shortener, repo, cfg)
+	h := handler.CreateHandler(shortener, repo, cfg)
 	logger.Log.Info("Starting server", zap.String("address", cfg.ServerAddress))
 	if err := http.ListenAndServe(cfg.ServerAddress, route.Create(h)); err != nil {
 		panic(err)

@@ -11,17 +11,17 @@ import (
 // - пакетное создание,
 // - поиск по хэшу и по пользователю,
 // - удаление,
-// - проверка состояния сервиса (ping).
+// - проверка состояния сервиса (Ping).
 type Handler struct {
-	create
-	createWithJSON
-	batch
-	find
-	ping
-	delete
+	Create
+	CreateWithJSON
+	Batch
+	Find
+	Ping
+	Delete
 }
 
-// Create инициализирует и возвращает новый экземпляр Handler с заданными зависимостями.
+// CreateHandler инициализирует и возвращает новый экземпляр Handler с заданными зависимостями.
 //
 // Параметры:
 //   - s: указатель на сервис типа *service.Shortener, реализующий бизнес-логику.
@@ -30,13 +30,13 @@ type Handler struct {
 //
 // Возвращает:
 //   - *Handler: готовый к использованию объект обработчика HTTP-запросов.
-func Create(s *service.Shortener, pingChecker PingChecker, cfg *config.Config) *Handler {
+func CreateHandler(s *service.Shortener, pingChecker PingChecker, cfg *config.Config) *Handler {
 	return &Handler{
-		create:         create{service: s, authKey: cfg.AuthKey},
-		createWithJSON: createWithJSON{service: s, authKey: cfg.AuthKey},
-		batch:          batch{service: s, authKey: cfg.AuthKey},
-		find:           find{service: s, authKey: cfg.AuthKey},
-		ping:           ping{pingChecker},
-		delete:         delete{service: s, authKey: cfg.AuthKey},
+		Create:         Create{service: s, authKey: cfg.AuthKey},
+		CreateWithJSON: CreateWithJSON{service: s, authKey: cfg.AuthKey},
+		Batch:          Batch{service: s, authKey: cfg.AuthKey},
+		Find:           Find{service: s, authKey: cfg.AuthKey},
+		Ping:           Ping{pingChecker},
+		Delete:         Delete{service: s, authKey: cfg.AuthKey},
 	}
 }

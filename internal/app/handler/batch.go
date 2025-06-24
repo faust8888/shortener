@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-type batch struct {
+type Batch struct {
 	service batchSaver
 	authKey string
 }
@@ -17,7 +17,7 @@ type batchSaver interface {
 	CreateWithBatch(batch []model.CreateShortRequestBatchItemRequest, userID string) ([]model.CreateShortRequestBatchItemResponse, error)
 }
 
-// CreateWithBatch обрабатывает входящий POST-запрос с пакетом данных для создания коротких ссылок.
+// CreateLinkWithBatch обрабатывает входящий POST-запрос с пакетом данных для создания коротких ссылок.
 //
 // Метод:
 // - Проверяет или генерирует токен авторизации.
@@ -45,7 +45,7 @@ type batchSaver interface {
 // - 400 Bad Request — невалидное тело запроса.
 // - 401 Unauthorized — отсутствующий или недействительный токен.
 // - 500 Internal Server Error — внутренняя ошибка сервера.
-func (handler *batch) CreateWithBatch(res http.ResponseWriter, req *http.Request) {
+func (handler *Batch) CreateLinkWithBatch(res http.ResponseWriter, req *http.Request) {
 	token := security.GetToken(req)
 	if token == "" {
 		newToken, err := security.BuildToken(handler.authKey)

@@ -14,7 +14,7 @@ import (
 
 const LocationHeader = "Location"
 
-type find struct {
+type Find struct {
 	service finder
 	authKey string
 }
@@ -24,7 +24,7 @@ type finder interface {
 	FindAllByUserID(userID string) ([]model.FindURLByUserIDResponse, error)
 }
 
-// FindByHash обрабатывает GET-запрос на редирект по короткой ссылке.
+// FindLinkByHash обрабатывает GET-запрос на редирект по короткой ссылке.
 //
 // Метод:
 // - Извлекает хэш из пути запроса.
@@ -37,7 +37,7 @@ type finder interface {
 // - 307 Temporary Redirect — успешный редирект.
 // - 404 Not Found — ссылка не найдена.
 // - 410 Gone — ссылка была удалена.
-func (handler *find) FindByHash(res http.ResponseWriter, req *http.Request) {
+func (handler *Find) FindLinkByHash(res http.ResponseWriter, req *http.Request) {
 	searchedHashURL := chi.URLParam(req, config.HashKeyURLQueryParam)
 	fullURL, err := handler.service.FindByHash(searchedHashURL)
 	if errors.Is(err, postgres.ErrRecordWasMarkedAsDeleted) {
@@ -51,7 +51,7 @@ func (handler *find) FindByHash(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-// FindByUserID обрабатывает GET-запрос для получения всех сокращённых ссылок текущего пользователя.
+// FindLinkByUserID обрабатывает GET-запрос для получения всех сокращённых ссылок текущего пользователя.
 //
 // Метод:
 // - Проверяет или генерирует токен авторизации.
@@ -71,7 +71,7 @@ func (handler *find) FindByHash(res http.ResponseWriter, req *http.Request) {
 // - 204 No Content — у пользователя нет сохранённых ссылок.
 // - 401 Unauthorized — отсутствующий или недействительный токен.
 // - 500 Internal Server Error — внутренняя ошибка сервера.
-func (handler *find) FindByUserID(res http.ResponseWriter, req *http.Request) {
+func (handler *Find) FindLinkByUserID(res http.ResponseWriter, req *http.Request) {
 	token := security.GetToken(req)
 	userID, err := security.GetUserID(token, handler.authKey)
 	if token == "" {

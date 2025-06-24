@@ -36,7 +36,7 @@ func (m *MockPingChecker) EXPECT() *MockPingCheckerMockRecorder {
 // Ping mocks base method.
 func (m *MockPingChecker) Ping() (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Ping")
+	ret := m.ctrl.Call(m, "PingDatabase")
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -45,5 +45,5 @@ func (m *MockPingChecker) Ping() (bool, error) {
 // Ping indicates an expected call of Ping.
 func (mr *MockPingCheckerMockRecorder) Ping() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockPingChecker)(nil).Ping))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PingDatabase", reflect.TypeOf((*MockPingChecker)(nil).Ping))
 }

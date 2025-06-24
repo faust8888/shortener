@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-type delete struct {
+type Delete struct {
 	service deleter
 	authKey string
 }
@@ -16,7 +16,7 @@ type deleter interface {
 	DeleteAsync(ids []string, userID string) error
 }
 
-// Delete обрабатывает POST-запрос на удаление нескольких коротких ссылок.
+// DeleteLink обрабатывает POST-запрос на удаление нескольких коротких ссылок.
 //
 // Метод:
 // - Проверяет наличие токена авторизации.
@@ -33,7 +33,7 @@ type deleter interface {
 // - 400 Bad Request — невалидное тело запроса или ошибка парсинга.
 // - 401 Unauthorized — отсутствующий или недействительный токен.
 // - 500 Internal Server Error — внутренняя ошибка сервера.
-func (handler *delete) Delete(res http.ResponseWriter, req *http.Request) {
+func (handler *Delete) DeleteLink(res http.ResponseWriter, req *http.Request) {
 	token := security.GetToken(req)
 	if token == "" {
 		res.WriteHeader(http.StatusUnauthorized)

@@ -14,7 +14,7 @@ import (
 	"net/http"
 )
 
-type create struct {
+type Create struct {
 	service creator
 	authKey string
 }
@@ -23,7 +23,7 @@ type creator interface {
 	Create(fullURL string, userID string) (string, error)
 }
 
-// Create обрабатывает POST-запрос на создание короткой ссылки.
+// CreateLink обрабатывает POST-запрос на создание короткой ссылки.
 //
 // Метод:
 // - Читает тело запроса как plain text.
@@ -38,7 +38,7 @@ type creator interface {
 // - 401 Unauthorized — отсутствующий или недействительный токен.
 // - 409 Conflict — дублирующаяся запись.
 // - 500 Internal Server Error — внутренняя ошибка сервера.
-func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
+func (handler *Create) CreateLink(res http.ResponseWriter, req *http.Request) {
 	requestBody, err := io.ReadAll(req.Body)
 	if err != nil {
 		http.Error(res, "couldn't read the targetFullURL of request!", http.StatusBadRequest)
@@ -67,7 +67,7 @@ func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
 	shortURL, err := handler.service.Create(fullURL, userID)
 	isUniqueConstraintViolation := errors.Is(err, postgres.ErrUniqueIndexConstraint)
 	if err != nil && !isUniqueConstraintViolation {
-		logger.Log.Error("Failed to create short URL", zap.String("body", fullURL), zap.Error(err))
+		logger.Log.Error("Failed to CreateLink short URL", zap.String("body", fullURL), zap.Error(err))
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -85,12 +85,12 @@ func (handler *create) Create(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-type createWithJSON struct {
+type CreateWithJSON struct {
 	service creator
 	authKey string
 }
 
-// CreateWithJSON обрабатывает POST-запрос с JSON-телом вида {"url": "http://example.com"}.
+// CreateLinkWithJSON обрабатывает POST-запрос с JSON-телом вида {"url": "http://example.com"}.
 //
 // Метод:
 // - Читает и парсит JSON-запрос.
@@ -113,7 +113,7 @@ type createWithJSON struct {
 // - 401 Unauthorized — отсутствующий или недействительный токен.
 // - 409 Conflict — дублирующаяся запись.
 // - 500 Internal Server Error — внутренняя ошибка сервера.
-func (handler *createWithJSON) CreateWithJSON(res http.ResponseWriter, req *http.Request) {
+func (handler *CreateWithJSON) CreateLinkWithJSON(res http.ResponseWriter, req *http.Request) {
 	var buf bytes.Buffer
 	_, err := buf.ReadFrom(req.Body)
 	if err != nil {

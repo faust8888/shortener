@@ -10,26 +10,26 @@ import (
 )
 
 type route interface {
-	CreateWithBatch(res http.ResponseWriter, req *http.Request)
-	CreateWithJSON(res http.ResponseWriter, req *http.Request)
-	Create(res http.ResponseWriter, req *http.Request)
-	FindByHash(res http.ResponseWriter, req *http.Request)
-	FindByUserID(res http.ResponseWriter, req *http.Request)
-	Ping(res http.ResponseWriter, req *http.Request)
-	Delete(res http.ResponseWriter, req *http.Request)
+	CreateLinkWithBatch(res http.ResponseWriter, req *http.Request)
+	CreateLinkWithJSON(res http.ResponseWriter, req *http.Request)
+	CreateLink(res http.ResponseWriter, req *http.Request)
+	FindLinkByHash(res http.ResponseWriter, req *http.Request)
+	FindLinkByUserID(res http.ResponseWriter, req *http.Request)
+	PingDatabase(res http.ResponseWriter, req *http.Request)
+	DeleteLink(res http.ResponseWriter, req *http.Request)
 }
 
 // Create инициализирует HTTP-роутер на основе chi и регистрирует маршруты,
 // связывая каждый маршрут с соответствующим методом интерфейса route.
 //
 // Поддерживаемые маршруты:
-// - POST /api/shorten          → CreateWithJSON
-// - POST /api/shorten/batch    → CreateWithBatch
+// - POST /api/shorten          → CreateLinkWithJSON
+// - POST /api/shorten/batch    → CreateLinkWithBatch
 // - POST /                     → Create
-// - GET /{hash}                → FindByHash
-// - GET /api/user/urls         → FindByUserID
-// - GET /ping                  → Ping
-// - DELETE /api/user/urls      → Delete
+// - GET /{hash}                → FindLinkByHash
+// - GET /api/user/urls         → FindLinkByUserID
+// - GET /ping                  → PingDatabase
+// - DELETE /api/user/urls      → DeleteLink
 // - /debug/pprof/*             → pprof (для профилирования)
 //
 // Возвращает:
@@ -38,13 +38,13 @@ func Create(r route) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(gzip.NewMiddleware)
 	router.Use(logger.NewMiddleware)
-	router.Post("/api/shorten", r.CreateWithJSON)
-	router.Post("/api/shorten/batch", r.CreateWithBatch)
-	router.Post("/", r.Create)
-	router.Get("/{"+config.HashKeyURLQueryParam+"}", r.FindByHash)
-	router.Get("/api/user/urls", r.FindByUserID)
-	router.Get("/ping", r.Ping)
-	router.Delete("/api/user/urls", r.Delete)
+	router.Post("/api/shorten", r.CreateLinkWithJSON)
+	router.Post("/api/shorten/batch", r.CreateLinkWithBatch)
+	router.Post("/", r.CreateLink)
+	router.Get("/{"+config.HashKeyURLQueryParam+"}", r.FindLinkByHash)
+	router.Get("/api/user/urls", r.FindLinkByUserID)
+	router.Get("/ping", r.PingDatabase)
+	router.Delete("/api/user/urls", r.DeleteLink)
 	router.Get("/debug/pprof/*", pprof.Index)
 	router.Get("/debug/pprof/cmdline", pprof.Cmdline)
 	router.Get("/debug/pprof/profile", pprof.Profile)

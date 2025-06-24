@@ -26,12 +26,12 @@ func TestCreatingShortURLAndFinding(t *testing.T) {
 		userID  string
 	}{
 		{
-			name:    "Successfully Create and FindByHash URL",
+			name:    "Successfully CreateLink and FindLinkByHash URL",
 			fullURL: "https://ya.ru",
 			userID:  "123456",
 		},
 		{
-			name:    "Successfully Create and FindByHash URL (long url)",
+			name:    "Successfully CreateLink and FindLinkByHash URL (long url)",
 			fullURL: "https://sven.ru/qwer/yrue/123/0393/kdjdksadasnjda/923839238/asjasjdi",
 			userID:  "123456",
 		},
@@ -74,12 +74,12 @@ func BenchmarkCreatingShortURLAndFinding(b *testing.B) {
 		userID  string
 	}{
 		{
-			name:    "Successfully Create and FindByHash URL",
+			name:    "Successfully CreateLink and FindLinkByHash URL",
 			fullURL: "https://ya.ru",
 			userID:  "123456",
 		},
 		{
-			name:    "Successfully Create and FindByHash URL (long url)",
+			name:    "Successfully CreateLink and FindLinkByHash URL (long url)",
 			fullURL: "https://sven.ru/qwer/yrue/123/0393/kdjdksadasnjda/923839238/asjasjdi",
 			userID:  "123456",
 		},
