@@ -7,7 +7,9 @@ import (
 	"net/http"
 )
 
-type delete struct {
+// Delete — это HTTP-обработчик для асинхронного удаления коротких ссылок.
+// Использует интерфейс deleter для выполнения операции удаления и требует ключ аутентификации.
+type Delete struct {
 	service deleter
 	authKey string
 }
@@ -16,7 +18,24 @@ type deleter interface {
 	DeleteAsync(ids []string, userID string) error
 }
 
-func (handler *delete) Delete(res http.ResponseWriter, req *http.Request) {
+// DeleteLink обрабатывает POST-запрос на удаление нескольких коротких ссылок.
+//
+// Метод:
+// - Проверяет наличие токена авторизации.
+// - Извлекает идентификатор пользователя из токена.
+// - Читает и декодирует JSON-тело запроса, ожидая массив строк (ID ссылок).
+// - Передаёт данные сервису для асинхронного удаления.
+//
+// Пример тела запроса:
+//
+//	["abc123", "def456"]
+//
+// Возможные HTTP-статусы:
+// - 202 Accepted — запрос принят на обработку (асинхронное удаление).
+// - 400 Bad Request — невалидное тело запроса или ошибка парсинга.
+// - 401 Unauthorized — отсутствующий или недействительный токен.
+// - 500 Internal Server Error — внутренняя ошибка сервера.
+func (handler *Delete) DeleteLink(res http.ResponseWriter, req *http.Request) {
 	token := security.GetToken(req)
 	if token == "" {
 		res.WriteHeader(http.StatusUnauthorized)

@@ -172,10 +172,10 @@ func TestPostWithJsonCompress(t *testing.T) {
 }
 
 func compressString(input string) []byte {
-	// Create a buffer to hold the compressed data
+	// CreateHandler a buffer to hold the compressed data
 	var buf bytes.Buffer
 
-	// Create a new Gzip writer
+	// CreateHandler a new Gzip writer
 	gz := gzip.NewWriter(&buf)
 
 	// Write the input string to the Gzip writer

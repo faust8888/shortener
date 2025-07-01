@@ -8,13 +8,27 @@ import (
 	"go.uber.org/zap"
 )
 
+// Repository — это реализация интерфейса repository.Repository на основе map.
+// Поддерживает:
+// - хранение пар shortURL → fullURL,
+// - хранение ссылок по пользователю,
+// - бэкап данных в файл.
 type Repository struct {
-	urlBucket    map[string]string
-	userBucket   map[string]map[string]struct{}
-	bkp          *Backup
-	baseShortURL string
+	urlBucket    map[string]string              // Карта коротких URL → оригинальные URL
+	userBucket   map[string]map[string]struct{} // Карта пользовательских ссылок
+	bkp          *Backup                        // Утилита для сохранения данных
+	baseShortURL string                         // Базовый URL для формирования полного адреса
 }
 
+// Save сохраняет одну пару (hashURL -> fullURL) для указанного пользователя.
+//
+// Параметры:
+//   - urlHash: хэш-ключ для короткой ссылки.
+//   - fullURL: оригинальный URL.
+//   - userID: идентификатор пользователя.
+//
+// Возвращает:
+//   - error: nil, если успешно, иначе — ошибку.
 func (r *Repository) Save(urlHash string, fullURL string, userID string) error {
 	if _, exists := r.urlBucket[urlHash]; !exists {
 		r.urlBucket[urlHash] = fullURL
@@ -30,6 +44,14 @@ func (r *Repository) Save(urlHash string, fullURL string, userID string) error {
 	return nil
 }
 
+// FindByHash находит оригинальный URL по его хэш-ключу.
+//
+// Параметр:
+//   - hashURL: хэш-ключ короткой ссылки.
+//
+// Возвращает:
+//   - string: оригинальный URL.
+//   - error: nil, если найдено, иначе — ошибку.
 func (r *Repository) FindByHash(hashURL string) (string, error) {
 	if fullURL, exists := r.urlBucket[hashURL]; exists {
 		return fullURL, nil
@@ -37,6 +59,14 @@ func (r *Repository) FindByHash(hashURL string) (string, error) {
 	return "", fmt.Errorf("short url not found for %s", hashURL)
 }
 
+// FindAllByUserID возвращает все короткие ссылки, принадлежащие пользователю.
+//
+// Параметр:
+//   - userID: идентификатор пользователя.
+//
+// Возвращает:
+//   - []model.FindURLByUserIDResponse: список ссылок пользователя.
+//   - error: nil, если успешно, иначе — ошибку.
 func (r *Repository) FindAllByUserID(userID string) ([]model.FindURLByUserIDResponse, error) {
 	shortURLs := r.userBucket[userID]
 	result := make([]model.FindURLByUserIDResponse, 0)
@@ -50,6 +80,14 @@ func (r *Repository) FindAllByUserID(userID string) ([]model.FindURLByUserIDResp
 	return result, nil
 }
 
+// SaveAll сохраняет несколько ссылок за один раз (пакетная операция).
+//
+// Параметры:
+//   - batch: карта хэшей и DTO с данными о ссылках.
+//   - userID: идентификатор пользователя.
+//
+// Возвращает:
+//   - error: nil, если успешно, иначе — ошибку.
 func (r *Repository) SaveAll(batch map[string]model.CreateShortDTO, userID string) error {
 	for _, batchItem := range batch {
 		err := r.Save(batchItem.HashURL, batchItem.OriginalURL, userID)
@@ -60,14 +98,40 @@ func (r *Repository) SaveAll(batch map[string]model.CreateShortDTO, userID strin
 	return nil
 }
 
+// Ping проверяет доступность хранилища.
+//
+// Всегда возвращает true и nil, так как InMemory-реализация всегда доступна.
+//
+// Возвращает:
+//   - bool: true, если хранилище доступно.
+//   - error: nil, если всё в порядке.
 func (r *Repository) Ping() (bool, error) {
 	return true, nil
 }
 
+// DeleteAll асинхронно удаляет несколько коротких ссылок пользователя.
+//
+// Для InMemory-реализации пока не используется.
+// Реализация удаления может быть добавлена при необходимости.
+//
+// Параметры:
+//   - shortURLs: список идентификаторов (хэшей) ссылок для удаления.
+//   - userID: идентификатор пользователя.
+//
+// Возвращает:
+//   - error: nil, так как удаление пока не реализовано.
 func (r *Repository) DeleteAll(shortURLs []string, userID string) error {
 	return nil
 }
 
+// NewInMemoryRepository создаёт новый экземпляр InMemory-репозитория.
+// Если указан путь к файлу бэкапа — восстанавливает данные из него.
+//
+// Параметр:
+//   - cfg: конфигурация приложения.
+//
+// Возвращает:
+//   - *Repository: готовый к использованию репозиторий.
 func NewInMemoryRepository(cfg *config.Config) *Repository {
 	urlBucket := make(map[string]string)
 	userBucket := make(map[string]map[string]struct{})

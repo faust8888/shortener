@@ -7,8 +7,17 @@ import (
 	"time"
 )
 
+// Log — глобальный логгер приложения.
+// По умолчанию установлен в "no-op" режим до инициализации.
 var Log = zap.NewNop()
 
+// Initialize настраивает глобальный логгер на основе указанного уровня логирования.
+//
+// Параметры:
+//   - level: строковое представление уровня логирования (например, "debug", "info").
+//
+// Возвращает:
+//   - error: nil, если инициализация прошла успешно, иначе — ошибку.
 func Initialize(level string) error {
 	loggingLevel, err := zap.ParseAtomicLevel(level)
 	if err != nil {
@@ -24,6 +33,14 @@ func Initialize(level string) error {
 	return nil
 }
 
+// NewMiddleware возвращает HTTP middleware, который логирует входящие запросы и исходящие ответы.
+//
+// Для каждого запроса логируются:
+//   - HTTP-метод,
+//   - URL-путь,
+//   - статус ответа,
+//   - объём переданных данных,
+//   - время выполнения.
 func NewMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()

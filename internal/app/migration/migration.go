@@ -10,6 +10,22 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
+// Run применяет SQL-миграции к указанной PostgreSQL базе данных.
+//
+// Метод:
+// - Устанавливает соединение с БД.
+// - Создаёт драйвер миграции для PostgreSQL.
+// - Инициализирует систему миграций, используя SQL-файлы из директории `internal/app/migration/sql`.
+// - Применяет все новые миграции.
+//
+// Если миграции уже применены (ErrNoChange), это не считается ошибкой.
+//
+// Параметры:
+//   - dataSourceName: строка подключения к PostgreSQL (DSN).
+//
+// Возвращает:
+//   - error: nil, если миграции успешно применены или уже были применены ранее,
+//     иначе — соответствующую ошибку.
 func Run(dataSourceName string) error {
 	db, err := sql.Open("pgx", dataSourceName)
 	if err != nil {

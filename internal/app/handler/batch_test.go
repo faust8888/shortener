@@ -22,7 +22,7 @@ func TestCreateWithBatch(t *testing.T) {
 		want  want
 	}{
 		{
-			name: "Successfully created Short URLs with batch",
+			name: "Successfully created Short URLs with Batch",
 			batch: []model.CreateShortRequestBatchItemRequest{
 				{
 					CorrelationID: "1",

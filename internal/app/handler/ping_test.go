@@ -20,7 +20,7 @@ func TestPing(t *testing.T) {
 		want want
 	}{
 		{
-			name: "Successfully ping",
+			name: "Successfully PingDatabase",
 			want: want{
 				code: http.StatusOK,
 			},

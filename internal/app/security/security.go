@@ -15,18 +15,35 @@ import (
 	"time"
 )
 
+// Константы, используемые в пакете.
 const (
-	TokenExp               = time.Hour * 3
+	// TokenExp — время жизни JWT-токена (по умолчанию 3 часа).
+	TokenExp = time.Hour * 3
+
+	// AuthorizationTokenName — имя куки, в которой хранится токен аутентификации.
 	AuthorizationTokenName = "Authorization"
 )
 
-var ErrNoAuthorizationToken = errors.New("authorization token is missed")
+// Глобальные ошибки, используемые в пакете.
+var (
+	// ErrNoAuthorizationToken — ошибка, возникающая, когда токен отсутствует.
+	ErrNoAuthorizationToken = errors.New("authorization token is missed")
+)
 
+// Claims — пользовательские claims для JWT-токена.
+// Содержит стандартные поля и уникальный идентификатор пользователя.
 type Claims struct {
 	jwt.RegisteredClaims
 	UserID string
 }
 
+// GetToken извлекает значение токена из куки запроса.
+//
+// Параметры:
+//   - req: указатель на http.Request.
+//
+// Возвращает:
+//   - string: значение токена или пустую строку, если токен не найден.
 func GetToken(req *http.Request) string {
 	tokenCookie, err := req.Cookie(AuthorizationTokenName)
 	if tokenCookie != nil && err == nil {
@@ -35,6 +52,15 @@ func GetToken(req *http.Request) string {
 	return ""
 }
 
+// GetUserID извлекает идентификатор пользователя из JWT-токена.
+//
+// Параметры:
+//   - token: строковое представление JWT-токена.
+//   - encodedKey: ключ для верификации токена.
+//
+// Возвращает:
+//   - string: идентификатор пользователя.
+//   - error: nil, если успешно, иначе — ошибку.
 func GetUserID(token string, encodedKey string) (string, error) {
 	if token == "" {
 		return "", nil
@@ -52,6 +78,14 @@ func GetUserID(token string, encodedKey string) (string, error) {
 	return claims.UserID, nil
 }
 
+// BuildToken создаёт новый JWT-токен с уникальным идентификатором пользователя.
+//
+// Параметры:
+//   - key: секретный ключ для подписи токена.
+//
+// Возвращает:
+//   - string: готовый токен.
+//   - error: nil, если успешно, иначе — ошибку.
 func BuildToken(key string) (string, error) {
 	userID, err := generateUserID()
 	if err != nil {
@@ -70,6 +104,14 @@ func BuildToken(key string) (string, error) {
 	return token, nil
 }
 
+// CreateHashForURL создаёт уникальный хэш для заданного URL.
+//
+// Параметры:
+//   - fullURL: оригинальный URL.
+//
+// Возвращает:
+//   - string: хэшированное представление URL (первые 10 символов).
+//   - error: nil, если URL корректный, иначе — ошибку.
 func CreateHashForURL(fullURL string) (string, error) {
 	if isInvalidURL(fullURL) {
 		return "", errors.New("invalid url")
@@ -77,12 +119,28 @@ func CreateHashForURL(fullURL string) (string, error) {
 	return CreateHash(fullURL), nil
 }
 
+// CreateHash создаёт SHA256-хэш строки и возвращает его URL-safe представление.
+//
+// Параметры:
+//   - key: строка, которую нужно захэшировать.
+//
+// Возвращает:
+//   - string: первые 10 символов Base64-URL-encoded хэша.
 func CreateHash(key string) string {
 	hashBytes := sha256.Sum256([]byte(key))
 	hashString := base64.URLEncoding.EncodeToString(hashBytes[:])
 	return hashString[:10]
 }
 
+// encrypt шифрует строку с использованием AES-GCM.
+//
+// Параметры:
+//   - token: строка, которую нужно зашифровать.
+//   - key: hex-строка, используемая как ключ шифрования.
+//
+// Возвращает:
+//   - string: зашифрованный токен в hex-представлении.
+//   - error: nil, если успешно, иначе — ошибку.
 func encrypt(token string, key string) (string, error) {
 	decodedKey, err := hex.DecodeString(key)
 	if err != nil {
@@ -105,6 +163,11 @@ func encrypt(token string, key string) (string, error) {
 	return hex.EncodeToString(encryptedToken), nil
 }
 
+// generateUserID генерирует случайную строку длиной 16 байт, используемую как идентификатор пользователя.
+//
+// Возвращает:
+//   - string: случайная строка.
+//   - error: nil, если успешно, иначе — ошибку.
 func generateUserID() (string, error) {
 	userID, err := generateRandom(16)
 	if err != nil {
@@ -113,6 +176,14 @@ func generateUserID() (string, error) {
 	return string(userID), nil
 }
 
+// generateRandom генерирует случайную последовательность байтов заданной длины.
+//
+// Параметры:
+//   - size: количество байтов.
+//
+// Возвращает:
+//   - []byte: случайная последовательность.
+//   - error: nil, если успешно, иначе — ошибку.
 func generateRandom(size int) ([]byte, error) {
 	b := make([]byte, size)
 	_, err := rand.Read(b)
@@ -122,6 +193,15 @@ func generateRandom(size int) ([]byte, error) {
 	return b, nil
 }
 
+// isInvalidURL проверяет, является ли URL допустимым.
+//
+// Проверяет наличие scheme и host.
+//
+// Параметры:
+//   - fullURL: URL для проверки.
+//
+// Возвращает:
+//   - bool: true, если URL невалиден, иначе — false.
 func isInvalidURL(fullURL string) bool {
 	parsedURL, err := url.Parse(fullURL)
 	if err != nil {

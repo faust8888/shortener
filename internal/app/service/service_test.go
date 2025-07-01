@@ -26,12 +26,12 @@ func TestCreatingShortURLAndFinding(t *testing.T) {
 		userID  string
 	}{
 		{
-			name:    "Successfully Create and FindByHash URL",
+			name:    "Successfully CreateLink and FindLinkByHash URL",
 			fullURL: "https://ya.ru",
 			userID:  "123456",
 		},
 		{
-			name:    "Successfully Create and FindByHash URL (long url)",
+			name:    "Successfully CreateLink and FindLinkByHash URL (long url)",
 			fullURL: "https://sven.ru/qwer/yrue/123/0393/kdjdksadasnjda/923839238/asjasjdi",
 			userID:  "123456",
 		},
@@ -62,4 +62,40 @@ func TestCouldNotFindFullURL(t *testing.T) {
 	require.Error(t, err, "Expected error when trying to find full URL")
 	require.Equal(t, "find by hash: short url not found for not_existing_hash_key", err.Error())
 	require.Equal(t, "", fullURL)
+}
+
+func BenchmarkCreatingShortURLAndFinding(b *testing.B) {
+	b.StopTimer()
+	cfg := config.Create()
+	service := CreateShortener(inmemory.NewInMemoryRepository(cfg), cfg.BaseShortURL)
+	tests := []struct {
+		name    string
+		fullURL string
+		userID  string
+	}{
+		{
+			name:    "Successfully CreateLink and FindLinkByHash URL",
+			fullURL: "https://ya.ru",
+			userID:  "123456",
+		},
+		{
+			name:    "Successfully CreateLink and FindLinkByHash URL (long url)",
+			fullURL: "https://sven.ru/qwer/yrue/123/0393/kdjdksadasnjda/923839238/asjasjdi",
+			userID:  "123456",
+		},
+	}
+	b.StartTimer()
+	for _, test := range tests {
+		b.Run(test.name, func(t *testing.B) {
+			shortURL, err := service.Create(test.fullURL, test.userID)
+			require.NoError(t, err, CreateShortURLErrorMessage)
+			parsedURL, _ := url.Parse(shortURL)
+
+			hashURL := strings.TrimPrefix(parsedURL.Path, "/")
+			returnedFullURL, err := service.FindByHash(hashURL)
+
+			require.NoError(t, err, GetFullURLErrorMessage)
+			assert.Equal(t, test.fullURL, returnedFullURL, URLNotMatchErrorMessage)
+		})
+	}
 }
