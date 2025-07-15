@@ -5,6 +5,7 @@ import (
 	"github.com/caarlos0/env/v6"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
+	"strconv"
 )
 
 // Константы, используемые для флагов командной строки и параметров конфигурации.
@@ -26,6 +27,9 @@ const (
 
 	// AuthKeyNameFlag — флаг для указания имени ключа аутентификации (например, "-k").
 	AuthKeyNameFlag = "k"
+
+	// EnableTLSOnServerFlag — флаг для включения HTTPS на сервере (например, "-k")
+	EnableTLSOnServerFlag = "s"
 
 	// HashKeyURLQueryParam — имя параметра запроса, содержащего хэш URL (например, "/{hash}").
 	HashKeyURLQueryParam = "hashKeyURL"
@@ -51,6 +55,9 @@ type Config struct {
 
 	// AuthKey — секретный ключ, используемый для генерации токенов аутентификации.
 	AuthKey string `env:"AUTH_KEY"`
+
+	// EnableHTTPS — включения HTTPS на веб-сервере.
+	EnableHTTPS bool `env:"ENABLE_HTTPS"`
 }
 
 // Create инициализирует и возвращает объект конфигурации, заполняя его значениями из:
@@ -68,6 +75,7 @@ func Create() *Config {
 	setFlag(&cfg.StorageFilePath, StorageFilePathFlag, "./storage.txt", "Path to the storage file")
 	setFlag(&cfg.DataSourceName, DataSourceNameFlag, "", "URL to the running PostgreSQL")
 	setFlag(&cfg.AuthKey, AuthKeyNameFlag, "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8", "Auth Key for authentication")
+	setBoolFlag(&cfg.EnableHTTPS, EnableTLSOnServerFlag, "false", "Enabling TLS on server")
 	flag.Parse()
 
 	err := env.Parse(&cfg)
@@ -83,5 +91,24 @@ func setFlag(p *string, flagName string, defaultFlagValue string, description st
 		flag.StringVar(p, flagName, defaultFlagValue, description)
 	} else {
 		*p = flag.Lookup(flagName).Value.String()
+	}
+}
+
+func setBoolFlag(p *bool, flagName string, defaultFlagValue string, description string) {
+	if flag.Lookup(flagName) == nil {
+		isEnable, err := strconv.ParseBool(defaultFlagValue)
+		if err != nil {
+			logger.Log.Error("Failed to parse boolean flag", zap.String("flag", flagName), zap.Error(err))
+			isEnable = false
+		}
+		flag.BoolVar(p, flagName, isEnable, description)
+	} else {
+		valStr := flag.Lookup(flagName).Value.String()
+		valBool, err := strconv.ParseBool(valStr)
+		if err != nil {
+			logger.Log.Error("Failed to parse boolean flag value", zap.String("flag", flagName), zap.Error(err))
+			valBool = false
+		}
+		*p = valBool
 	}
 }

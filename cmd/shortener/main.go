@@ -15,6 +15,7 @@ import (
 	"github.com/faust8888/shortener/internal/app/service"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/acme/autocert"
 	"net/http"
 	_ "net/http/pprof" // Import pprof for profiling endpoints
 )
@@ -63,7 +64,23 @@ func main() {
 	)
 
 	logger.Log.Info("Starting server", zap.String("address", cfg.ServerAddress))
-	if err := http.ListenAndServe(cfg.ServerAddress, route.Create(h)); err != nil {
-		panic(err)
+	if cfg.EnableHTTPS {
+		manager := &autocert.Manager{
+			Cache:      autocert.DirCache("cache-dir"),
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist("localhost", "127.0.0.1"),
+		}
+		server := &http.Server{
+			Addr:      cfg.ServerAddress,
+			Handler:   route.Create(h),
+			TLSConfig: manager.TLSConfig(),
+		}
+		if err := server.ListenAndServeTLS("", ""); err != nil {
+			panic(err)
+		}
+	} else {
+		if err := http.ListenAndServe(cfg.ServerAddress, route.Create(h)); err != nil {
+			panic(err)
+		}
 	}
 }
