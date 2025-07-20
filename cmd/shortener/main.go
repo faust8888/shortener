@@ -5,6 +5,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"github.com/faust8888/shortener/internal/app/config"
 	"github.com/faust8888/shortener/internal/app/handler"
 	"github.com/faust8888/shortener/internal/app/migration"
@@ -18,19 +20,23 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"net/http"
 	_ "net/http/pprof" // Import pprof for profiling endpoints
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
-// BuildVersion is the semantic version of the build (e.g., v1.0.0).
+// buildVersion is the semantic version of the build (e.g., v1.0.0).
 // This value is typically injected at compile time via -ldflags.
-var BuildVersion string = "N/A"
+var buildVersion string = "N/A"
 
-// BuildDate is the timestamp when the binary was built, usually in ISO format.
+// buildDate is the timestamp when the binary was built, usually in ISO format.
 // This value is typically injected at compile time via -ldflags.
-var BuildDate string = "N/A"
+var buildDate string = "N/A"
 
-// BuildCommit is the git commit hash used to build the binary.
+// buildCommit is the git commit hash used to build the binary.
 // This value is typically injected at compile time via -ldflags.
-var BuildCommit string = "N/A"
+var buildCommit string = "N/A"
 
 // main starts the shortener service.
 //
@@ -57,30 +63,61 @@ func main() {
 	h := handler.CreateHandler(shortener, repo, cfg)
 
 	// Log build metadata
-	logger.Log.Info("Build Info",
-		zap.String("version", BuildVersion),
-		zap.String("date", BuildDate),
-		zap.String("commit", BuildCommit),
-	)
+	printBuildInfo()
 
-	logger.Log.Info("Starting server", zap.String("address", cfg.ServerAddress))
-	if cfg.EnableHTTPS {
-		manager := &autocert.Manager{
-			Cache:      autocert.DirCache("cache-dir"),
-			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist("localhost", "127.0.0.1"),
-		}
-		server := &http.Server{
-			Addr:      cfg.ServerAddress,
-			Handler:   route.Create(h),
-			TLSConfig: manager.TLSConfig(),
-		}
-		if err := server.ListenAndServeTLS("", ""); err != nil {
-			panic(err)
-		}
-	} else {
-		if err := http.ListenAndServe(cfg.ServerAddress, route.Create(h)); err != nil {
-			panic(err)
-		}
+	// --- Настройка сервера и Graceful Shutdown ---
+	// Создаем канал для получения сигналов ОС.
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	// Создаем экземпляр http.Server для полного контроля.
+	server := &http.Server{
+		Addr:    cfg.ServerAddress,
+		Handler: route.Create(h),
 	}
+
+	// Запускаем сервер в отдельной горутине.
+	go func() {
+		logger.Log.Info("Starting server", zap.String("address", cfg.ServerAddress), zap.Bool("https", cfg.EnableHTTPS))
+		var err error
+		if cfg.EnableHTTPS {
+			manager := &autocert.Manager{
+				Cache:      autocert.DirCache("cache-dir"),
+				Prompt:     autocert.AcceptTOS,
+				HostPolicy: autocert.HostWhitelist("localhost", "127.0.0.1"), // Укажите ваши домены
+			}
+			server.TLSConfig = manager.TLSConfig()
+			err = server.ListenAndServeTLS("", "")
+		} else {
+			err = server.ListenAndServe()
+		}
+
+		// http.ErrServerClosed - ожидаемая ошибка при вызове Shutdown, ее не логируем как фатальную.
+		if err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatal("Server failed to start", zap.Error(err))
+		}
+	}()
+
+	// Блокируем основной поток до получения сигнала.
+	<-sigChan
+
+	logger.Log.Info("Shutting down server gracefully...")
+
+	// Создаем контекст с таймаутом для завершения работы.
+	// Даем серверу 10 секунд на завершение обработки текущих запросов.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Вызываем Shutdown, который мягко завершает работу сервера.
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		logger.Log.Error("Server shutdown failed", zap.Error(err))
+	}
+
+	logger.Log.Info("Server gracefully stopped")
+}
+
+func printBuildInfo() {
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
 }
