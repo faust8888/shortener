@@ -1,114 +1,197 @@
+// Package config предоставляет управление конфигурацией для приложения.
+// Он загружает настройки из командных флагов, переменных окружения и JSON-файла,
+// обеспечивая правильный приоритет: флаги > переменные окружения > JSON-файл > значения по умолчанию.
 package config
 
 import (
+	"encoding/json"
 	"flag"
+	"io"
+	"os"
+	"sync"
+
 	"github.com/caarlos0/env/v6"
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
-	"strconv"
 )
 
-// Константы, используемые для флагов командной строки и параметров конфигурации.
+// Константы для флагов командной строки.
 const (
-	// ServerAddressFlag — флаг для указания адреса сервера (например, "-a").
+	// ServerAddressFlag - флаг для адреса сервера (-a).
 	ServerAddressFlag = "a"
-
-	// BaseShortURLFlag — флаг для указания базового URL коротких ссылок (например, "-b").
+	// BaseShortURLFlag - флаг для базового URL сокращенных ссылок (-b).
 	BaseShortURLFlag = "b"
-
-	// LoggingLevelFlag — флаг для указания уровня логирования (например, "-l").
+	// LoggingLevelFlag - флаг для уровня логирования (-l).
 	LoggingLevelFlag = "l"
-
-	// StorageFilePathFlag — флаг для указания пути к файлу хранения данных (например, "-f").
+	// StorageFilePathFlag - флаг для пути к файлу хранения (-f).
 	StorageFilePathFlag = "f"
-
-	// DataSourceNameFlag — флаг для указания DSN-строки PostgreSQL (например, "-d").
+	// DataSourceNameFlag - флаг для строки подключения к БД (-d).
 	DataSourceNameFlag = "d"
-
-	// AuthKeyNameFlag — флаг для указания имени ключа аутентификации (например, "-k").
+	// AuthKeyNameFlag - флаг для ключа аутентификации (-k).
 	AuthKeyNameFlag = "k"
-
-	// EnableTLSOnServerFlag — флаг для включения HTTPS на сервере (например, "-k")
+	// EnableTLSOnServerFlag - флаг для включения HTTPS (-s).
 	EnableTLSOnServerFlag = "s"
-
-	// HashKeyURLQueryParam — имя параметра запроса, содержащего хэш URL (например, "/{hash}").
+	// ConfigFileFlag - флаг для пути к файлу конфигурации (-c).
+	ConfigFileFlag = "c"
+	// ConfigFileFlagAlias - псевдоним флага для пути к файлу конфигурации (-config).
+	ConfigFileFlagAlias = "config"
+	// HashKeyURLQueryParam - имя параметра URL, содержащего хэш.
 	HashKeyURLQueryParam = "hashKeyURL"
 )
 
-// Config — это структура, представляющая конфигурацию приложения.
-// Поля могут заполняться как через флаги командной строки, так и через переменные окружения.
+// Config хранит все настройки конфигурации приложения.
 type Config struct {
-	// ServerAddress — адрес и порт, на котором будет запущен сервер (например, "localhost:8080").
-	ServerAddress string `env:"SERVER_ADDRESS"`
-
-	// BaseShortURL — базовый URL, используемый для формирования полного адреса короткой ссылки.
-	BaseShortURL string `env:"BASE_URL"`
-
-	// LoggingLevel — уровень логирования (например, "INFO", "DEBUG").
+	// ServerAddress - сетевой адрес и порт для запуска сервера (флаг -a, env SERVER_ADDRESS).
+	ServerAddress string `env:"SERVER_ADDRESS" json:"server_address"`
+	// BaseShortURL - базовый URL для формирования сокращенных ссылок (флаг -b, env BASE_URL).
+	BaseShortURL string `env:"BASE_URL" json:"base_url"`
+	// LoggingLevel - уровень логирования (флаг -l, env LOGGING_LEVEL).
 	LoggingLevel string `env:"LOGGING_LEVEL"`
-
-	// StorageFilePath — путь к файлу, используемому для хранения данных (если используется файловое хранилище).
-	StorageFilePath string `env:"FILE_STORAGE_PATH"`
-
-	// DataSourceName — строка подключения к PostgreSQL (DSN).
-	DataSourceName string `env:"DATABASE_DSN"`
-
-	// AuthKey — секретный ключ, используемый для генерации токенов аутентификации.
+	// StorageFilePath - путь к файлу для хранения данных, если не используется БД (флаг -f, env FILE_STORAGE_PATH).
+	StorageFilePath string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	// DataSourceName - строка подключения к базе данных PostgreSQL (флаг -d, env DATABASE_DSN).
+	DataSourceName string `env:"DATABASE_DSN" json:"database_dsn"`
+	// AuthKey - секретный ключ для подписи токенов аутентификации (флаг -k, env AUTH_KEY).
 	AuthKey string `env:"AUTH_KEY"`
-
-	// EnableHTTPS — включения HTTPS на веб-сервере.
-	EnableHTTPS bool `env:"ENABLE_HTTPS"`
+	// EnableHTTPS - флаг, включающий HTTPS на сервере (флаг -s, env ENABLE_HTTPS).
+	EnableHTTPS bool `env:"ENABLE_HTTPS" json:"enable_https"`
 }
 
-// Create инициализирует и возвращает объект конфигурации, заполняя его значениями из:
-// - флагов командной строки,
-// - переменных окружения.
+// JSONConfig - это вспомогательная структура для разбора конфигурации из JSON-файла.
+// Использование указателей позволяет отличить отсутствующее в JSON поле от поля с нулевым значением
+// (например, пустой строки или false).
+type JSONConfig struct {
+	ServerAddress   *string `json:"server_address"`
+	BaseShortURL    *string `json:"base_url"`
+	StorageFilePath *string `json:"file_storage_path"`
+	DataSourceName  *string `json:"database_dsn"`
+	EnableHTTPS     *bool   `json:"enable_https"`
+}
+
+var (
+	// cfg - глобальный синглтон-экземпляр конфигурации приложения.
+	cfg *Config
+	// once используется для гарантии того, что инициализация конфигурации произойдет только один раз.
+	once sync.Once
+)
+
+// Create инициализирует и возвращает синглтон-объект конфигурации.
 //
-// Возвращает:
-//   - *Config: указатель на готовую конфигурацию приложения.
+// Функция определяет настройки, считывая их из различных источников
+// в следующем порядке приоритета (от высшего к низшему):
+//  1. Флаги командной строки (например, -a, -b).
+//  2. Переменные окружения (например, SERVER_ADDRESS, BASE_URL).
+//  3. Файл конфигурации в формате JSON (путь к которому задается флагом -c/-config или переменной окружения CONFIG).
+//  4. Значения по умолчанию, заданные в коде.
+//
+// Благодаря использованию sync.Once, логика инициализации выполняется только при первом вызове.
+// Все последующие вызовы мгновенно возвращают уже настроенный экземпляр.
 func Create() *Config {
-	var cfg Config
+	once.Do(func() {
+		configFilePath := findConfigPathUsingFlags()
 
-	setFlag(&cfg.ServerAddress, ServerAddressFlag, "localhost:8080", "Address of the server")
-	setFlag(&cfg.BaseShortURL, BaseShortURLFlag, "http://localhost:8080", "Base URL for returning short URL")
-	setFlag(&cfg.LoggingLevel, LoggingLevelFlag, "INFO", "Level of logging to use")
-	setFlag(&cfg.StorageFilePath, StorageFilePathFlag, "./storage.txt", "Path to the storage file")
-	setFlag(&cfg.DataSourceName, DataSourceNameFlag, "", "URL to the running PostgreSQL")
-	setFlag(&cfg.AuthKey, AuthKeyNameFlag, "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8", "Auth Key for authentication")
-	setBoolFlag(&cfg.EnableHTTPS, EnableTLSOnServerFlag, "false", "Enabling TLS on server")
-	flag.Parse()
+		if configFilePath == "" {
+			configFilePath = os.Getenv("CONFIG")
+		}
 
-	err := env.Parse(&cfg)
+		cfg = defaultConfig()
+
+		if configFilePath != "" {
+			cfg.applyJSONConfig(configFilePath)
+		}
+
+		if err := env.Parse(cfg); err != nil {
+			logger.Log.Error("Failed to parse environment variables", zap.Error(err))
+		}
+
+		defineGlobalFlags()
+
+		flag.Parse()
+	})
+
+	return cfg
+}
+
+// defaultConfig создает новый экземпляр Config со значениями по умолчанию.
+func defaultConfig() *Config {
+	return &Config{
+		ServerAddress:   "localhost:8080",
+		BaseShortURL:    "http://localhost:8080",
+		LoggingLevel:    "INFO",
+		StorageFilePath: "./storage.txt",
+		DataSourceName:  "",
+		AuthKey:         "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8",
+		EnableHTTPS:     false,
+	}
+}
+
+// findConfigPathUsingFlags использует временный, изолированный FlagSet для поиска
+// пути к файлу конфигурации в аргументах командной строки. Это позволяет найти путь
+// до основного парсинга флагов и избежать ошибок о неопределенных флагах.
+func findConfigPathUsingFlags() string {
+	configFlagSet := flag.NewFlagSet("config", flag.ContinueOnError)
+	// Перенаправляем вывод ошибок этого временного FlagSet в "никуда",
+	// чтобы он не засорял консоль при встрече с флагами, которые он не знает (-a, -b и т.д.).
+	configFlagSet.SetOutput(io.Discard)
+
+	var configPath string
+	configFlagSet.StringVar(&configPath, ConfigFileFlag, "", "Path to JSON config file")
+	configFlagSet.StringVar(&configPath, ConfigFileFlagAlias, "", "Path to JSON config file (alias)")
+
+	// Парсим аргументы. Ошибки будут проигнорированы и не будут выведены в консоль.
+	_ = configFlagSet.Parse(os.Args[1:])
+
+	return configPath
+}
+
+// applyJSONConfig читает конфигурационный файл JSON по указанному пути
+// и применяет его настройки к экземпляру Config.
+// Метод перезаписывает поля только в том случае, если они присутствуют в JSON-файле.
+func (c *Config) applyJSONConfig(path string) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		logger.Log.Error("Failed to parse config", zap.Error(err))
+		logger.Log.Warn("Failed to read config file, skipping", zap.String("path", path), zap.Error(err))
+		return
 	}
 
-	return &cfg
+	var jsonCfg JSONConfig
+	if err := json.Unmarshal(data, &jsonCfg); err != nil {
+		logger.Log.Warn("Failed to parse JSON config file, skipping", zap.String("path", path), zap.Error(err))
+		return
+	}
+
+	if jsonCfg.ServerAddress != nil {
+		c.ServerAddress = *jsonCfg.ServerAddress
+	}
+	if jsonCfg.BaseShortURL != nil {
+		c.BaseShortURL = *jsonCfg.BaseShortURL
+	}
+	if jsonCfg.StorageFilePath != nil {
+		c.StorageFilePath = *jsonCfg.StorageFilePath
+	}
+	if jsonCfg.DataSourceName != nil {
+		c.DataSourceName = *jsonCfg.DataSourceName
+	}
+	if jsonCfg.EnableHTTPS != nil {
+		c.EnableHTTPS = *jsonCfg.EnableHTTPS
+	}
 }
 
-func setFlag(p *string, flagName string, defaultFlagValue string, description string) {
-	if flag.Lookup(flagName) == nil {
-		flag.StringVar(p, flagName, defaultFlagValue, description)
-	} else {
-		*p = flag.Lookup(flagName).Value.String()
-	}
-}
+// defineGlobalFlags определяет все флаги командной строки приложения в глобальном наборе flag.CommandLine.
+// В качестве значений по умолчанию для флагов используются уже загруженные значения из cfg.
+// Это обеспечивает правильный порядок приоритетов при вызове flag.Parse().
+func defineGlobalFlags() {
+	flag.StringVar(&cfg.ServerAddress, ServerAddressFlag, cfg.ServerAddress, "Address of the server (ex: localhost:8080)")
+	flag.StringVar(&cfg.BaseShortURL, BaseShortURLFlag, cfg.BaseShortURL, "Base URL for short links (ex: http://localhost:8080)")
+	flag.StringVar(&cfg.StorageFilePath, StorageFilePathFlag, cfg.StorageFilePath, "Path to the storage file")
+	flag.StringVar(&cfg.DataSourceName, DataSourceNameFlag, cfg.DataSourceName, "Data Source Name for PostgreSQL (ex: postgres://user:pass@host:port/db)")
+	flag.BoolVar(&cfg.EnableHTTPS, EnableTLSOnServerFlag, cfg.EnableHTTPS, "Enable HTTPS")
+	flag.StringVar(&cfg.LoggingLevel, LoggingLevelFlag, cfg.LoggingLevel, "Level of logging to use")
+	flag.StringVar(&cfg.AuthKey, AuthKeyNameFlag, cfg.AuthKey, "Auth Key for authentication")
 
-func setBoolFlag(p *bool, flagName string, defaultFlagValue string, description string) {
-	if flag.Lookup(flagName) == nil {
-		isEnable, err := strconv.ParseBool(defaultFlagValue)
-		if err != nil {
-			logger.Log.Error("Failed to parse boolean flag", zap.String("flag", flagName), zap.Error(err))
-			isEnable = false
-		}
-		flag.BoolVar(p, flagName, isEnable, description)
-	} else {
-		valStr := flag.Lookup(flagName).Value.String()
-		valBool, err := strconv.ParseBool(valStr)
-		if err != nil {
-			logger.Log.Error("Failed to parse boolean flag value", zap.String("flag", flagName), zap.Error(err))
-			valBool = false
-		}
-		*p = valBool
-	}
+	// Определяем флаг -c/-config здесь еще раз, чтобы он отображался в справке (-h).
+	// Его значение нам уже не нужно, так как мы его получили ранее.
+	var dummyConfigPath string
+	flag.StringVar(&dummyConfigPath, ConfigFileFlag, "", "Path to JSON config file")
+	flag.StringVar(&dummyConfigPath, ConfigFileFlagAlias, "", "Path to JSON config file (alias)")
 }
