@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/faust8888/shortener/internal/app/config"
 	"github.com/faust8888/shortener/internal/app/handler"
@@ -18,6 +19,7 @@ import (
 	"github.com/faust8888/shortener/internal/middleware/logger"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
+	"golang.org/x/sync/errgroup"
 	"net/http"
 	_ "net/http/pprof" // Import pprof for profiling endpoints
 	"os"
@@ -41,23 +43,41 @@ var buildCommit string = "N/A"
 // main starts the shortener service.
 //
 // It initializes logging, configures the repository based on configuration,
-// sets up routing, and starts the HTTP server.
+// sets up routing, and starts the HTTP server with graceful shutdown.
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Application error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// run contains the main application logic and returns an error.
+func run() error {
 	cfg := config.Create()
 	if err := logger.Initialize(cfg.LoggingLevel); err != nil {
-		panic(err)
+		return fmt.Errorf("failed to initialize logger: %w", err)
 	}
 
+	// Initialize repository
 	var repo repository.Repository
 	if cfg.DataSourceName != "" {
 		err := migration.Run(cfg.DataSourceName)
 		if err != nil {
-			logger.Log.Fatal("migration.run", zap.Error(err))
+			return fmt.Errorf("migration failed: %w", err)
 		}
 		repo = postgres.NewPostgresRepository(cfg)
 	} else {
 		repo = inmemory.NewInMemoryRepository(cfg)
 	}
+
+	// Ensure repository cleanup
+	defer func() {
+		if closer, ok := repo.(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				logger.Log.Error("Failed to close repository", zap.Error(err))
+			}
+		}
+	}()
 
 	shortener := service.CreateShortener(repo, cfg.BaseShortURL)
 	h := handler.CreateHandler(shortener, repo, cfg)
@@ -65,26 +85,33 @@ func main() {
 	// Log build metadata
 	printBuildInfo()
 
-	// --- Настройка сервера и Graceful Shutdown ---
-	// Создаем канал для получения сигналов ОС.
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	// --- Graceful Shutdown with errgroup ---
+	// Create a context that is canceled when a termination signal is received.
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, os.Interrupt)
+	defer stop()
 
-	// Создаем экземпляр http.Server для полного контроля.
+	// Create an errgroup with the context.
+	g, gctx := errgroup.WithContext(ctx)
+
+	// Create the HTTP server.
 	server := &http.Server{
 		Addr:    cfg.ServerAddress,
 		Handler: route.Create(h),
 	}
 
-	// Запускаем сервер в отдельной горутине.
-	go func() {
-		logger.Log.Info("Starting server", zap.String("address", cfg.ServerAddress), zap.Bool("https", cfg.EnableHTTPS))
+	// Goroutine to run the HTTP server.
+	g.Go(func() error {
+		logger.Log.Info("Starting server",
+			zap.String("address", cfg.ServerAddress),
+			zap.Bool("https", cfg.EnableHTTPS))
+
 		var err error
 		if cfg.EnableHTTPS {
 			manager := &autocert.Manager{
 				Cache:      autocert.DirCache("cache-dir"),
 				Prompt:     autocert.AcceptTOS,
-				HostPolicy: autocert.HostWhitelist("localhost", "127.0.0.1"), // Укажите ваши домены
+				HostPolicy: autocert.HostWhitelist("localhost", "127.0.0.1"),
 			}
 			server.TLSConfig = manager.TLSConfig()
 			err = server.ListenAndServeTLS("", "")
@@ -92,28 +119,46 @@ func main() {
 			err = server.ListenAndServe()
 		}
 
-		// http.ErrServerClosed - ожидаемая ошибка при вызове Shutdown, ее не логируем как фатальную.
-		if err != nil && err != http.ErrServerClosed {
-			logger.Log.Fatal("Server failed to start", zap.Error(err))
+		// http.ErrServerClosed is the expected error during graceful shutdown.
+		if errors.Is(err, http.ErrServerClosed) {
+			logger.Log.Info("Server stopped")
+			return nil
 		}
-	}()
+		return fmt.Errorf("server failed: %w", err)
+	})
 
-	// Блокируем основной поток до получения сигнала.
-	<-sigChan
+	// Goroutine to handle graceful shutdown.
+	g.Go(func() error {
+		// Wait for the context to be canceled (i.e., a signal is received).
+		<-gctx.Done()
 
-	logger.Log.Info("Shutting down server gracefully...")
+		logger.Log.Info("Shutting down server gracefully...")
 
-	// Создаем контекст с таймаутом для завершения работы.
-	// Даем серверу 10 секунд на завершение обработки текущих запросов.
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+		// Create a separate context with a timeout for the shutdown process.
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-	// Вызываем Shutdown, который мягко завершает работу сервера.
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		logger.Log.Error("Server shutdown failed", zap.Error(err))
+		// Perform the graceful shutdown.
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("server shutdown failed: %w", err)
+		}
+
+		logger.Log.Info("Server gracefully stopped")
+		return nil
+	})
+
+	// Wait for all goroutines in the group to complete.
+	if err := g.Wait(); err != nil {
+		// Filter out the expected context cancellation error.
+		if errors.Is(err, context.Canceled) {
+			logger.Log.Info("Application stopped successfully")
+			return nil
+		}
+		return fmt.Errorf("application error: %w", err)
 	}
 
-	logger.Log.Info("Server gracefully stopped")
+	logger.Log.Info("Application stopped successfully")
+	return nil
 }
 
 func printBuildInfo() {
