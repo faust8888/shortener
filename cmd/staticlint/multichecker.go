@@ -5,26 +5,14 @@
 //   - Все анализаторы класса SA (Staticcheck) из honnef.co/go/tools/cmd/staticcheck
 //   - Два популярных сторонних анализатора: ineffassign и errcheck
 //   - Собственный анализатор, запрещающий вызов os.Exit() в main.main
-//
-// ### Установка
-//
-// Для установки multichecker выполните:
-//
-//	go install ./...
-//
-// ### Запуск
-//
-// Чтобы запустить анализ всего проекта:
-//
-//	your-multichecker ./...
-//
-// Или конкретного пакета:
-//
-//	your-multichecker github.com/your/project/...
 package staticlint
 
 import (
 	"go/ast"
+	"go/token"
+	"go/types"
+	"golang.org/x/tools/go/analysis/passes/buildssa"
+	"golang.org/x/tools/go/ssa"
 	"honnef.co/go/tools/staticcheck"
 
 	"golang.org/x/tools/go/analysis"
@@ -62,6 +50,24 @@ var forbiddenOSExitAnalyzer = &analysis.Analyzer{
 	Run:  runForbiddenOSExit,
 }
 
+// ineffassignAnalyzer — обнаруживает неиспользуемые присвоения.
+// Для работы использует SSA (Static Single Assignment).
+var ineffassignAnalyzer = &analysis.Analyzer{
+	Name: "ineffassign",
+	Doc:  "detects ineffectual assignments",
+	Run:  runIneffassign,
+	Requires: []*analysis.Analyzer{
+		buildssa.Analyzer,
+	},
+}
+
+// errcheckAnalyzer — проверяет, что ошибки, возвращаемые функциями, не игнорируются.
+var errcheckAnalyzer = &analysis.Analyzer{
+	Name: "errcheck",
+	Doc:  "checks that errors are not ignored",
+	Run:  runErrcheck,
+}
+
 // runForbiddenOSExit реализует логику анализа: находит прямые вызовы os.Exit в main.main.
 func runForbiddenOSExit(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
@@ -88,8 +94,110 @@ func runForbiddenOSExit(pass *analysis.Pass) (interface{}, error) {
 			return true
 		})
 	}
-
 	return nil, nil // успешно завершили анализ
+}
+
+// runIneffassign реализует логику поиска неэффективных присвоений.
+func runIneffassign(pass *analysis.Pass) (interface{}, error) {
+	s := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
+	for _, fn := range s.SrcFuncs {
+		for _, b := range fn.Blocks {
+			for _, instr := range b.Instrs {
+				// Ищем инструкцию `store` (запись в переменную)
+				if store, ok := instr.(*ssa.Store); ok {
+					// Проверяем, есть ли у адреса, куда мы пишем, какие-либо "потребители" (чтения)
+					if store.Addr.Referrers() == nil {
+						continue
+					}
+					// Если у переменной только один потребитель, и это та самая инструкция store,
+					// значит, в нее только записали, но никогда не читали.
+					if len(*store.Addr.Referrers()) == 1 {
+						pass.Reportf(store.Pos(), "ineffectual assignment to %s", store.Addr.Name())
+					}
+				}
+			}
+		}
+	}
+	return nil, nil
+}
+
+// errorType - кешированный тип интерфейса error для быстрых проверок.
+var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+
+// isErrorType проверяет, является ли данный тип типом error.
+func isErrorType(t types.Type) bool {
+	return types.Implements(t, errorType)
+}
+
+// runErrcheck реализует логику поиска проигнорированных ошибок.
+func runErrcheck(pass *analysis.Pass) (interface{}, error) {
+	// checkCall проверяет, возвращает ли вызов функции ошибку, которая игнорируется.
+	checkCall := func(call *ast.CallExpr) {
+		// Получаем сигнатуру вызываемой функции
+		sig, ok := pass.TypesInfo.TypeOf(call.Fun).(*types.Signature)
+		if !ok {
+			return
+		}
+		// Проверяем результаты функции
+		results := sig.Results()
+		for i := 0; i < results.Len(); i++ {
+			if isErrorType(results.At(i).Type()) {
+				pass.Reportf(call.Pos(), "expression returns an error that is not checked")
+				return // Достаточно одного сообщения на вызов
+			}
+		}
+	}
+
+	for _, file := range pass.Files {
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch stmt := n.(type) {
+			// Случай 1: вызов функции как отдельное выражение (например, `os.Remove("file")`)
+			case *ast.ExprStmt:
+				if call, ok := stmt.X.(*ast.CallExpr); ok {
+					checkCall(call)
+				}
+			// Случай 2: `go` или `defer`
+			case *ast.GoStmt:
+				checkCall(stmt.Call)
+			case *ast.DeferStmt:
+				checkCall(stmt.Call)
+			// Случай 3: присваивание с пустым идентификатором (например, `f, _ := os.Open("file")`)
+			case *ast.AssignStmt:
+				// Интересует только присваивание вида `... := ...`
+				if stmt.Tok != token.DEFINE {
+					return true
+				}
+				// Если справа не вызов функции, пропускаем
+				if len(stmt.Rhs) != 1 {
+					return true
+				}
+				call, ok := stmt.Rhs[0].(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				// Получаем результаты вызова
+				sig, ok := pass.TypesInfo.TypeOf(call.Fun).(*types.Signature)
+				if !ok {
+					return true
+				}
+				results := sig.Results()
+				// Сравниваем левую и правую части
+				for i, lhs := range stmt.Lhs {
+					if i >= results.Len() {
+						break
+					}
+					// Если слева пустой идентификатор, а справа - ошибка
+					if id, ok := lhs.(*ast.Ident); ok && id.Name == "_" {
+						if isErrorType(results.At(i).Type()) {
+							pass.Reportf(id.Pos(), "error is ignored by blank identifier")
+						}
+					}
+				}
+			}
+			return true
+		})
+	}
+	return nil, nil
 }
 
 func main() {
