@@ -18,11 +18,11 @@ import (
 func startTestServer(t *testing.T) *httptest.Server {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	pingChecker := createPingCheckerMock(ctrl)
+	mockRepository := createRepositoryMock(ctrl)
 
 	cfg := config.Create()
 	shortener := service.CreateShortener(inmemory.NewInMemoryRepository(cfg), cfg.BaseShortURL)
-	handler := CreateHandler(shortener, pingChecker, cfg)
+	handler := CreateHandler(shortener, mockRepository, cfg)
 
 	return httptest.NewServer(route.Create(handler))
 }
@@ -43,10 +43,10 @@ func extractHashKeyURLFrom(shortURL string) string {
 	return parsedURL.Path
 }
 
-func createPingCheckerMock(ctrl *gomock.Controller) *mocks.MockPingChecker {
-	pingChecker := mocks.NewMockPingChecker(ctrl)
-	pingChecker.EXPECT().Ping().AnyTimes().Return(true, nil)
-	return pingChecker
+func createRepositoryMock(ctrl *gomock.Controller) *mocks.MockRepository {
+	mockRepository := mocks.NewMockRepository(ctrl)
+	mockRepository.EXPECT().Ping().AnyTimes().Return(true, nil)
+	return mockRepository
 }
 
 func getTokenFromResponse(res *resty.Response) string {

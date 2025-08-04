@@ -63,7 +63,7 @@ type FindURLByUserIDResponse struct {
 //
 // Представляет данные для создания короткой ссылки вне зависимости от источника запроса.
 //
-// Поля:
+// Содержит:
 //   - OriginalURL: оригинальный URL.
 //   - ShortURL: сгенерированный короткий URL.
 //   - HashURL: хэш, использованный для генерации короткой ссылки.
@@ -71,4 +71,13 @@ type CreateShortDTO struct {
 	OriginalURL string
 	ShortURL    string
 	HashURL     string
+}
+
+// Statistic — модель статистики по сокращённым URL.
+// Содержит:
+//   - Urls: Общее количество уникальных URL.
+//   - Users: Общее количество уникальных пользователей.
+type Statistic struct {
+	Urls  int `json:"urls" validate:"required,urls"`
+	Users int `json:"users" validate:"required,users"`
 }
