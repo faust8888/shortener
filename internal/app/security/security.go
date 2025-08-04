@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -10,6 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v4"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"net"
 	"net/http"
 	"net/url"
@@ -52,6 +56,66 @@ func GetToken(req *http.Request) string {
 		return tokenCookie.Value
 	}
 	return ""
+}
+
+func GetTokenFromContext(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", nil
+	}
+
+	authHeaders := md[strings.ToLower(AuthorizationTokenName)]
+	if len(authHeaders) == 0 {
+		return "", nil
+	}
+
+	// Typically Authorization header value is "Bearer <token>"
+	token := authHeaders[0]
+	const bearerPrefix = "Bearer "
+	if strings.HasPrefix(token, bearerPrefix) {
+		return strings.TrimPrefix(token, bearerPrefix), nil
+	}
+
+	return token, nil // raw token without "Bearer " prefix
+}
+
+// IsAllowedTrustedIPFromContext checks whether the client IP from gRPC metadata is in the trusted subnet.
+//
+// Parameters:
+//   - ctx: gRPC context containing incoming metadata.
+//   - trustedSubnet: CIDR string for the trusted subnet (e.g., "192.168.1.0/24").
+//
+// Returns:
+//   - bool: true if the IP is valid and within the subnet; false otherwise.
+//   - error: a gRPC status error describing the failure, or nil if allowed.
+func IsAllowedTrustedIPFromContext(ctx context.Context, trustedSubnet string) (bool, error) {
+	if trustedSubnet == "" {
+		return false, status.Error(codes.PermissionDenied, "TrustedSubnet is missing")
+	}
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return false, status.Error(codes.PermissionDenied, "gRPC metadata missing")
+	}
+
+	ipSlice := md.Get("x-real-ip")
+	if len(ipSlice) == 0 || strings.TrimSpace(ipSlice[0]) == "" {
+		return false, status.Error(codes.PermissionDenied, "X-Real-IP metadata missing")
+	}
+	ipStr := strings.TrimSpace(ipSlice[0])
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false, status.Error(codes.PermissionDenied, "Invalid X-Real-IP")
+	}
+
+	_, subnet, err := net.ParseCIDR(trustedSubnet)
+	if err != nil {
+		return false, status.Error(codes.PermissionDenied, "Invalid TRUSTED_SUBNET")
+	}
+	if !subnet.Contains(ip) {
+		return false, status.Error(codes.PermissionDenied, "Forbidden: IP not in trusted subnet")
+	}
+	return true, nil
 }
 
 // GetUserID извлекает идентификатор пользователя из JWT-токена.

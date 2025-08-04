@@ -1,4 +1,4 @@
-package handler
+package http
 
 import (
 	"github.com/faust8888/shortener/internal/app/config"

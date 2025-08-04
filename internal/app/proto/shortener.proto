@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package shortener;
+
+option go_package = "internal/app/proto/shortenerpb";
+
+// Request for creating a short link with plain URL (string).
+message CreateShortRequest {
+  string url = 1; // original full URL to shorten
+}
+
+// Response containing created short URL.
+message CreateShortResponse {
+  string result = 1; // shortened URL
+}
+
+// Message for redirect request by hash
+message FindByHashRequest {
+  string hash = 1;
+}
+
+// Response for FindByHash
+message FindByHashResponse {
+  string full_url = 1; // original URL to redirect to
+  DeletedStatus status = 2; // status of the record
+}
+
+enum DeletedStatus {
+  NONE = 0;      // not deleted
+  MARKED_DELETED = 1; // record marked as deleted
+}
+
+// Request for fetching all URLs by user ID (userID is extracted from metadata/auth context)
+message FindAllByUserIDRequest {
+}
+
+message FindAllByUserIDResponse {
+  repeated FindURLByUserIDResponse urls = 1;
+}
+
+message FindURLByUserIDResponse {
+  string short_url = 1;
+  string original_url = 2;
+}
+
+message CreateShortRequestBatchItemRequest {
+  string correlation_id = 1;
+  string original_url = 2;
+}
+
+message CreateShortRequestBatchItemResponse {
+  string correlation_id = 1;
+  string short_url = 2;
+}
+
+message BatchCreateRequest {
+  repeated CreateShortRequestBatchItemRequest batch = 1;
+}
+
+message BatchCreateResponse {
+  repeated CreateShortRequestBatchItemResponse batch = 1;
+}
+
+// Request message for async deletion of multiple short links.
+message DeleteLinksRequest {
+  repeated string ids = 1; // IDs of links to delete
+}
+
+// Empty response message for acknowledgment.
+message DeleteLinksResponse {}
+
+// Statistic response message.
+message Statistic {
+  int32 urls = 1;
+  int32 users = 2;
+}
+
+// Empty request message.
+message EmptyRequest {}
+
+// Service definition for URL shortener.
+service ShortenerService {
+  // Create short link from plain URL string.
+  rpc CreateShort(CreateShortRequest) returns (CreateShortResponse);
+
+  // Redirect by hash: returns original URL and deletion status
+  rpc FindByHash(FindByHashRequest) returns (FindByHashResponse);
+
+  // Find all URLs for authenticated user
+  rpc FindAllByUserID(FindAllByUserIDRequest) returns (FindAllByUserIDResponse);
+
+  rpc CreateBatch(BatchCreateRequest) returns (BatchCreateResponse);
+
+  // Deletes multiple short links asynchronously.
+  rpc DeleteLinks(DeleteLinksRequest) returns (DeleteLinksResponse);
+
+  // Retrieves statistics about shortened URLs and users.
+  rpc GetStatistics(EmptyRequest) returns (Statistic);
+}

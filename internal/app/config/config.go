@@ -35,6 +35,8 @@ const (
 	ConfigFileFlag = "c"
 	// TrustedSubnetFlag - флаг для указания доверенной подсети (CIDR) для административного доступа (-t).
 	TrustedSubnetFlag = "t"
+	// EnableGRPCServerFlag - флаг для запуска gRPC серверо вместо HTTP (-t).
+	EnableGRPCServerFlag = "g"
 	// ConfigFileFlagAlias - псевдоним флага для пути к файлу конфигурации (-config).
 	ConfigFileFlagAlias = "config"
 	// HashKeyURLQueryParam - имя параметра URL, содержащего хэш.
@@ -59,6 +61,8 @@ type Config struct {
 	EnableHTTPS bool `env:"ENABLE_HTTPS" json:"enable_https"`
 	// TrustedSubnet - CIDR-подсеть, в пределах которой разрешён доступ к административным функциям (флаг -t, env TRUSTED_SUBNET).
 	TrustedSubnet string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
+	// EnableGRPC - Запуск gRPC сервера.
+	EnableGRPC bool `env:"ENABLE_GRPC" json:"enable_grpc"`
 }
 
 // JSONConfig - это вспомогательная структура для разбора конфигурации из JSON-файла.
@@ -71,6 +75,7 @@ type JSONConfig struct {
 	DataSourceName  *string `json:"database_dsn"`
 	EnableHTTPS     *bool   `json:"enable_https"`
 	TrustedSubnet   *string `json:"trusted_subnet"`
+	EnableGRPC      *bool   `json:"enable_grpc"`
 }
 
 var (
@@ -127,6 +132,7 @@ func defaultConfig() *Config {
 		DataSourceName:  "",
 		AuthKey:         "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8",
 		EnableHTTPS:     false,
+		EnableGRPC:      false,
 		TrustedSubnet:   "",
 	}
 }
@@ -181,6 +187,9 @@ func (c *Config) applyJSONConfig(path string) {
 	if jsonCfg.EnableHTTPS != nil {
 		c.EnableHTTPS = *jsonCfg.EnableHTTPS
 	}
+	if jsonCfg.EnableGRPC != nil {
+		c.EnableGRPC = *jsonCfg.EnableGRPC
+	}
 	if jsonCfg.TrustedSubnet != nil {
 		c.TrustedSubnet = *jsonCfg.TrustedSubnet
 	}
@@ -195,6 +204,7 @@ func defineGlobalFlags() {
 	flag.StringVar(&cfg.StorageFilePath, StorageFilePathFlag, cfg.StorageFilePath, "Path to the storage file")
 	flag.StringVar(&cfg.DataSourceName, DataSourceNameFlag, cfg.DataSourceName, "Data Source Name for PostgreSQL (ex: postgres://user:pass@host:port/db)")
 	flag.BoolVar(&cfg.EnableHTTPS, EnableTLSOnServerFlag, cfg.EnableHTTPS, "Enable HTTPS")
+	flag.BoolVar(&cfg.EnableGRPC, EnableGRPCServerFlag, cfg.EnableGRPC, "Enable gRPC")
 	flag.StringVar(&cfg.LoggingLevel, LoggingLevelFlag, cfg.LoggingLevel, "Level of logging to use")
 	flag.StringVar(&cfg.AuthKey, AuthKeyNameFlag, cfg.AuthKey, "Auth Key for authentication")
 	flag.StringVar(&cfg.TrustedSubnet, TrustedSubnetFlag, cfg.TrustedSubnet, "Trusted Subnet")
