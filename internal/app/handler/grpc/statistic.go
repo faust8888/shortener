@@ -8,8 +8,6 @@ import (
 	"github.com/faust8888/shortener/internal/app/security"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"net"
-	"strings"
 )
 
 // StatServer реализует gRPC сервис для получения статистики.
@@ -44,17 +42,4 @@ func (s *StatServer) GetStatistics(ctx context.Context, req *pb.EmptyRequest) (*
 		Urls:  int32(stat.Urls),
 		Users: int32(stat.Users),
 	}, nil
-}
-
-// CIDRContainsIP проверяет, принадлежит ли IP-адрес ipStr подсети cidr.
-func CIDRContainsIP(cidr, ipStr string) bool {
-	ip := net.ParseIP(strings.TrimSpace(ipStr))
-	if ip == nil {
-		return false
-	}
-	_, subnet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return false
-	}
-	return subnet.Contains(ip)
 }
