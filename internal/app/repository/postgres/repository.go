@@ -198,6 +198,42 @@ func (r *Repository) Ping() (bool, error) {
 	return true, nil
 }
 
+// Collect собирает статистику по уникальным пользователям и URL из базы данных.
+//
+// Выполняет SQL-запросы для подсчёта:
+//   - уникальных user_id среди не удалённых записей,
+//   - общего количества не удалённых URL.
+//
+// Возвращает:
+//   - *model.Statistic: структура с количеством уникальных пользователей (Users) и URL (Urls).
+//   - error: ошибку, если один из запросов к базе данных завершился неудачей.
+func (r *Repository) Collect() (*model.Statistic, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	var userCount int
+	userQuery := `
+        SELECT COUNT(DISTINCT user_id) AS unique_user_count
+        FROM shortener WHERE is_deleted = FALSE;
+    `
+	err := r.db.QueryRowContext(ctx, userQuery).Scan(&userCount)
+	if err != nil {
+		return nil, fmt.Errorf("postgres.repository.Collect.user_id: %w", err)
+	}
+
+	var urlCount int
+	urlQuery := `
+        SELECT COUNT(*) AS url_count
+        FROM shortener WHERE is_deleted = FALSE;
+    `
+	err = r.db.QueryRowContext(ctx, urlQuery).Scan(&urlCount)
+	if err != nil {
+		return nil, fmt.Errorf("postgres.repository.Collect.url_count: %w", err)
+	}
+
+	return &model.Statistic{Urls: urlCount, Users: userCount}, nil
+}
+
 // NewPostgresRepository создаёт новый экземпляр Repository, подключаясь к PostgreSQL.
 //
 // Паникует, если не может установить соединение.

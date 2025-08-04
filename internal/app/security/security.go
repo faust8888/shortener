@@ -10,8 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v4"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -130,6 +132,44 @@ func CreateHash(key string) string {
 	hashBytes := sha256.Sum256([]byte(key))
 	hashString := base64.URLEncoding.EncodeToString(hashBytes[:])
 	return hashString[:10]
+}
+
+// IsAllowedTrustedIP проверяет, входит ли IP-адрес клиента из заголовка X-Real-IP
+// в доверенную подсеть, заданную в trustedSubnet.
+//
+// Параметры:
+//   - req: HTTP-запрос для получения заголовка X-Real-IP.
+//   - res: HTTP-ответ, куда записываются ошибки с кодом 403 Forbidden при проверках.
+//   - trustedSubnet: строка CIDR с доверенной подсетью (например, "192.168.1.0/24").
+//
+// Возвращает:
+//   - bool: true, если IP корректен и входит в подсеть;
+//     false и пишет ошибку в ответ при отсутствии или некорректности данных.
+func IsAllowedTrustedIP(req *http.Request, res http.ResponseWriter, trustedSubnet string) bool {
+	if trustedSubnet == "" {
+		http.Error(res, "TrustedSubnet is missing", http.StatusForbidden)
+		return false
+	}
+	ipStr := req.Header.Get("X-Real-IP")
+	if ipStr == "" {
+		http.Error(res, "X-Real-IP header missing", http.StatusForbidden)
+		return false
+	}
+	ip := net.ParseIP(strings.TrimSpace(ipStr))
+	if ip == nil {
+		http.Error(res, "Invalid X-Real-IP", http.StatusForbidden)
+		return false
+	}
+	_, subnet, err := net.ParseCIDR(trustedSubnet)
+	if err != nil {
+		http.Error(res, "Invalid TRUSTED_SUBNET", http.StatusForbidden)
+		return false
+	}
+	if !subnet.Contains(ip) {
+		http.Error(res, "Forbidden", http.StatusForbidden)
+		return false
+	}
+	return true
 }
 
 // encrypt шифрует строку с использованием AES-GCM.

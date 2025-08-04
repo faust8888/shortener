@@ -124,6 +124,20 @@ func (r *Repository) DeleteAll(shortURLs []string, userID string) error {
 	return nil
 }
 
+// Collect возвращает текущую статистику по сокращённым ссылкам.
+//
+// Подсчитывает и возвращает количество уникальных пользователей и уникальных URL,
+// основанных на данных, хранящихся в userBucket и urlBucket.
+//
+// Возвращает:
+//   - *model.Statistic: структура с количеством уникальных URL (Urls) и пользователей (Users).
+//   - error: всегда nil, так как данная реализация не предусматривает ошибок.
+func (r *Repository) Collect() (*model.Statistic, error) {
+	userCount := len(r.userBucket)
+	urlCount := len(r.urlBucket)
+	return &model.Statistic{Urls: urlCount, Users: userCount}, nil
+}
+
 // NewInMemoryRepository создаёт новый экземпляр InMemory-репозитория.
 // Если указан путь к файлу бэкапа — восстанавливает данные из него.
 //
