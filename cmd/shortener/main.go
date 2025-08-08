@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/faust8888/shortener/internal/app/config"
-	"github.com/faust8888/shortener/internal/app/handler"
+	http2 "github.com/faust8888/shortener/internal/app/handler/http"
 	"github.com/faust8888/shortener/internal/app/migration"
 	"github.com/faust8888/shortener/internal/app/repository"
 	"github.com/faust8888/shortener/internal/app/repository/inmemory"
@@ -20,6 +20,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"net"
 	"net/http"
 	_ "net/http/pprof" // Import pprof for profiling endpoints
 	"os"
@@ -70,7 +72,6 @@ func run() error {
 		repo = inmemory.NewInMemoryRepository(cfg)
 	}
 
-	// Ensure repository cleanup
 	defer func() {
 		if closer, ok := repo.(interface{ Close() error }); ok {
 			if err := closer.Close(); err != nil {
@@ -79,30 +80,50 @@ func run() error {
 		}
 	}()
 
-	shortener := service.CreateShortener(repo, cfg.BaseShortURL)
-	h := handler.CreateHandler(shortener, repo, cfg)
-
-	// Log build metadata
 	printBuildInfo()
+	shortener := service.CreateShortener(repo, cfg.BaseShortURL)
 
-	// --- Graceful Shutdown with errgroup ---
-	// Create a context that is canceled when a termination signal is received.
+	// --- Setup Signal Handling ---
 	ctx, stop := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, os.Interrupt)
 	defer stop()
 
-	// Create an errgroup with the context.
+	// Use errgroup to manage both servers
 	g, gctx := errgroup.WithContext(ctx)
 
-	// Create the HTTP server.
+	// --- Start HTTP Server ---
+	g.Go(func() error {
+		err, _ := runHTTPWithContext(gctx, shortener, repo, cfg)
+		return err
+	})
+
+	// --- Start gRPC Server ---
+	if cfg.EnableGRPC {
+		g.Go(func() error {
+			return runGRPCWithContext(gctx, cfg)
+		})
+	}
+
+	// Wait for either server to fail or signal to terminate
+	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		return fmt.Errorf("application error: %w", err)
+	}
+
+	logger.Log.Info("Application stopped successfully")
+	return nil
+}
+
+func runHTTPWithContext(ctx context.Context, shortener *service.Shortener, repo repository.Repository, cfg *config.Config) (error, bool) {
+	h := http2.CreateHandler(shortener, repo, cfg)
+
 	server := &http.Server{
 		Addr:    cfg.ServerAddress,
 		Handler: route.Create(h),
 	}
 
-	// Goroutine to run the HTTP server.
-	g.Go(func() error {
-		logger.Log.Info("Starting server",
+	// Goroutine to start server
+	go func() {
+		logger.Log.Info("Starting HTTP server",
 			zap.String("address", cfg.ServerAddress),
 			zap.Bool("https", cfg.EnableHTTPS))
 
@@ -119,46 +140,61 @@ func run() error {
 			err = server.ListenAndServe()
 		}
 
-		// http.ErrServerClosed is the expected error during graceful shutdown.
-		if errors.Is(err, http.ErrServerClosed) {
-			logger.Log.Info("Server stopped")
-			return nil
+		if !errors.Is(err, http.ErrServerClosed) {
+			logger.Log.Error("HTTP server failed", zap.Error(err))
 		}
-		return fmt.Errorf("server failed: %w", err)
-	})
+	}()
 
-	// Goroutine to handle graceful shutdown.
-	g.Go(func() error {
-		// Wait for the context to be canceled (i.e., a signal is received).
-		<-gctx.Done()
+	// Goroutine to handle shutdown
+	go func() {
+		<-ctx.Done()
+		logger.Log.Info("Shutting down HTTP server gracefully...")
 
-		logger.Log.Info("Shutting down server gracefully...")
-
-		// Create a separate context with a timeout for the shutdown process.
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// Perform the graceful shutdown.
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			return fmt.Errorf("server shutdown failed: %w", err)
+			logger.Log.Error("HTTP shutdown failed", zap.Error(err))
 		}
+	}()
 
-		logger.Log.Info("Server gracefully stopped")
-		return nil
-	})
+	// Block until context is done
+	<-ctx.Done()
+	return nil, true
+}
 
-	// Wait for all goroutines in the group to complete.
-	if err := g.Wait(); err != nil {
-		// Filter out the expected context cancellation error.
-		if errors.Is(err, context.Canceled) {
-			logger.Log.Info("Application stopped successfully")
-			return nil
-		}
-		return fmt.Errorf("application error: %w", err)
+func runGRPCWithContext(ctx context.Context, cfg *config.Config) error {
+	s := grpc.NewServer()
+	lis, err := net.Listen("tcp", cfg.ServerGRPCAddress)
+	if err != nil {
+		return fmt.Errorf("failed to listen on %s: %w", cfg.ServerGRPCAddress, err)
 	}
 
-	logger.Log.Info("Application stopped successfully")
-	return nil
+	// Serve gRPC in a goroutine
+	go func() {
+		logger.Log.Info("Starting gRPC server", zap.String("address", cfg.ServerGRPCAddress))
+		if err := s.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+			logger.Log.Error("gRPC server error", zap.Error(err))
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-ctx.Done()
+
+	logger.Log.Info("Shutting down gRPC server gracefully...")
+	shutdownDone := make(chan struct{})
+	go func() {
+		s.GracefulStop()
+		close(shutdownDone)
+	}()
+
+	select {
+	case <-shutdownDone:
+		return nil
+	case <-time.After(10 * time.Second):
+		s.Stop() // Force stop after timeout
+		return context.DeadlineExceeded
+	}
 }
 
 func printBuildInfo() {

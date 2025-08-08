@@ -17,6 +17,7 @@ type route interface {
 	FindLinkByUserID(res http.ResponseWriter, req *http.Request)
 	PingDatabase(res http.ResponseWriter, req *http.Request)
 	DeleteLink(res http.ResponseWriter, req *http.Request)
+	CollectStatistic(res http.ResponseWriter, req *http.Request)
 }
 
 // Create инициализирует HTTP-роутер на основе chi и регистрирует маршруты,
@@ -28,6 +29,7 @@ type route interface {
 // - POST /                     → Create
 // - GET /{hash}                → FindLinkByHash
 // - GET /api/user/urls         → FindLinkByUserID
+// - GET //api/internal/stats   → CollectStatistic
 // - GET /ping                  → PingDatabase
 // - DELETE /api/user/urls      → DeleteLink
 // - /debug/pprof/*             → pprof (для профилирования)
@@ -45,6 +47,7 @@ func Create(r route) *chi.Mux {
 	router.Get("/api/user/urls", r.FindLinkByUserID)
 	router.Get("/ping", r.PingDatabase)
 	router.Delete("/api/user/urls", r.DeleteLink)
+	router.Get("/api/internal/stats", r.CollectStatistic)
 	router.Get("/debug/pprof/*", pprof.Index)
 	router.Get("/debug/pprof/cmdline", pprof.Cmdline)
 	router.Get("/debug/pprof/profile", pprof.Profile)

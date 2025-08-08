@@ -19,6 +19,8 @@ import (
 const (
 	// ServerAddressFlag - флаг для адреса сервера (-a).
 	ServerAddressFlag = "a"
+	// ServerGRCPAddressFlag - флаг для адреса GRCP сервера (-ag).
+	ServerGRPCAddressFlag = "ag"
 	// BaseShortURLFlag - флаг для базового URL сокращенных ссылок (-b).
 	BaseShortURLFlag = "b"
 	// LoggingLevelFlag - флаг для уровня логирования (-l).
@@ -33,6 +35,10 @@ const (
 	EnableTLSOnServerFlag = "s"
 	// ConfigFileFlag - флаг для пути к файлу конфигурации (-c).
 	ConfigFileFlag = "c"
+	// TrustedSubnetFlag - флаг для указания доверенной подсети (CIDR) для административного доступа (-t).
+	TrustedSubnetFlag = "t"
+	// EnableGRPCServerFlag - флаг для запуска gRPC серверо вместо HTTP (-t).
+	EnableGRPCServerFlag = "g"
 	// ConfigFileFlagAlias - псевдоним флага для пути к файлу конфигурации (-config).
 	ConfigFileFlagAlias = "config"
 	// HashKeyURLQueryParam - имя параметра URL, содержащего хэш.
@@ -43,6 +49,8 @@ const (
 type Config struct {
 	// ServerAddress - сетевой адрес и порт для запуска сервера (флаг -a, env SERVER_ADDRESS).
 	ServerAddress string `env:"SERVER_ADDRESS" json:"server_address"`
+	// ServerGRPCAddress - сетевой адрес и порт для запуска сервера (флаг -ag, env SERVER_GRCP_ADDRESS).
+	ServerGRPCAddress string `env:"SERVER_GRCP_ADDRESS" json:"server_grpc_address"`
 	// BaseShortURL - базовый URL для формирования сокращенных ссылок (флаг -b, env BASE_URL).
 	BaseShortURL string `env:"BASE_URL" json:"base_url"`
 	// LoggingLevel - уровень логирования (флаг -l, env LOGGING_LEVEL).
@@ -55,17 +63,24 @@ type Config struct {
 	AuthKey string `env:"AUTH_KEY"`
 	// EnableHTTPS - флаг, включающий HTTPS на сервере (флаг -s, env ENABLE_HTTPS).
 	EnableHTTPS bool `env:"ENABLE_HTTPS" json:"enable_https"`
+	// TrustedSubnet - CIDR-подсеть, в пределах которой разрешён доступ к административным функциям (флаг -t, env TRUSTED_SUBNET).
+	TrustedSubnet string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
+	// EnableGRPC - Запуск gRPC сервера.
+	EnableGRPC bool `env:"ENABLE_GRPC" json:"enable_grpc"`
 }
 
 // JSONConfig - это вспомогательная структура для разбора конфигурации из JSON-файла.
 // Использование указателей позволяет отличить отсутствующее в JSON поле от поля с нулевым значением
 // (например, пустой строки или false).
 type JSONConfig struct {
-	ServerAddress   *string `json:"server_address"`
-	BaseShortURL    *string `json:"base_url"`
-	StorageFilePath *string `json:"file_storage_path"`
-	DataSourceName  *string `json:"database_dsn"`
-	EnableHTTPS     *bool   `json:"enable_https"`
+	ServerAddress     *string `json:"server_address"`
+	ServerGRCPAddress *string `json:"server_grpc_address"`
+	BaseShortURL      *string `json:"base_url"`
+	StorageFilePath   *string `json:"file_storage_path"`
+	DataSourceName    *string `json:"database_dsn"`
+	EnableHTTPS       *bool   `json:"enable_https"`
+	TrustedSubnet     *string `json:"trusted_subnet"`
+	EnableGRPC        *bool   `json:"enable_grpc"`
 }
 
 var (
@@ -115,13 +130,16 @@ func Create() *Config {
 // defaultConfig создает новый экземпляр Config со значениями по умолчанию.
 func defaultConfig() *Config {
 	return &Config{
-		ServerAddress:   "localhost:8080",
-		BaseShortURL:    "http://localhost:8080",
-		LoggingLevel:    "INFO",
-		StorageFilePath: "./storage.txt",
-		DataSourceName:  "",
-		AuthKey:         "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8",
-		EnableHTTPS:     false,
+		ServerAddress:     "localhost:8080",
+		ServerGRPCAddress: "localhost:8090",
+		BaseShortURL:      "http://localhost:8080",
+		LoggingLevel:      "INFO",
+		StorageFilePath:   "./storage.txt",
+		DataSourceName:    "",
+		AuthKey:           "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8",
+		EnableHTTPS:       false,
+		EnableGRPC:        true,
+		TrustedSubnet:     "",
 	}
 }
 
@@ -163,6 +181,9 @@ func (c *Config) applyJSONConfig(path string) {
 	if jsonCfg.ServerAddress != nil {
 		c.ServerAddress = *jsonCfg.ServerAddress
 	}
+	if jsonCfg.ServerGRCPAddress != nil {
+		c.ServerGRPCAddress = *jsonCfg.ServerGRCPAddress
+	}
 	if jsonCfg.BaseShortURL != nil {
 		c.BaseShortURL = *jsonCfg.BaseShortURL
 	}
@@ -175,6 +196,12 @@ func (c *Config) applyJSONConfig(path string) {
 	if jsonCfg.EnableHTTPS != nil {
 		c.EnableHTTPS = *jsonCfg.EnableHTTPS
 	}
+	if jsonCfg.EnableGRPC != nil {
+		c.EnableGRPC = *jsonCfg.EnableGRPC
+	}
+	if jsonCfg.TrustedSubnet != nil {
+		c.TrustedSubnet = *jsonCfg.TrustedSubnet
+	}
 }
 
 // defineGlobalFlags определяет все флаги командной строки приложения в глобальном наборе flag.CommandLine.
@@ -182,12 +209,15 @@ func (c *Config) applyJSONConfig(path string) {
 // Это обеспечивает правильный порядок приоритетов при вызове flag.Parse().
 func defineGlobalFlags() {
 	flag.StringVar(&cfg.ServerAddress, ServerAddressFlag, cfg.ServerAddress, "Address of the server (ex: localhost:8080)")
+	flag.StringVar(&cfg.ServerGRPCAddress, ServerGRPCAddressFlag, cfg.ServerAddress, "Address of the GRCP server (ex: localhost:8090)")
 	flag.StringVar(&cfg.BaseShortURL, BaseShortURLFlag, cfg.BaseShortURL, "Base URL for short links (ex: http://localhost:8080)")
 	flag.StringVar(&cfg.StorageFilePath, StorageFilePathFlag, cfg.StorageFilePath, "Path to the storage file")
 	flag.StringVar(&cfg.DataSourceName, DataSourceNameFlag, cfg.DataSourceName, "Data Source Name for PostgreSQL (ex: postgres://user:pass@host:port/db)")
 	flag.BoolVar(&cfg.EnableHTTPS, EnableTLSOnServerFlag, cfg.EnableHTTPS, "Enable HTTPS")
+	flag.BoolVar(&cfg.EnableGRPC, EnableGRPCServerFlag, cfg.EnableGRPC, "Enable gRPC")
 	flag.StringVar(&cfg.LoggingLevel, LoggingLevelFlag, cfg.LoggingLevel, "Level of logging to use")
 	flag.StringVar(&cfg.AuthKey, AuthKeyNameFlag, cfg.AuthKey, "Auth Key for authentication")
+	flag.StringVar(&cfg.TrustedSubnet, TrustedSubnetFlag, cfg.TrustedSubnet, "Trusted Subnet")
 
 	// Определяем флаг -c/-config здесь еще раз, чтобы он отображался в справке (-h).
 	// Его значение нам уже не нужно, так как мы его получили ранее.

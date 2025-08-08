@@ -1,4 +1,4 @@
-package handler
+package http
 
 import (
 	"bytes"
@@ -68,12 +68,20 @@ func (c *creatorMock) Create(fullURL string, userID string) (string, error) {
 	return fmt.Sprintf("http://your-shortener.com/%s", fullURL[len(fullURL)-3:]), nil
 }
 
-// pingCheckerMock — реализация интерфейса PingChecker для тестов.
-type pingCheckerMock struct{}
+// repo — реализация интерфейса PingChecker для тестов.
+type repo struct{}
 
-func (p *pingCheckerMock) Ping() (bool, error) {
+func (p *repo) Ping() (bool, error) {
 	return true, nil
 }
+func (p *repo) Save(urlHash, fullURL, userID string) error { return nil }
+func (p *repo) FindByHash(hashURL string) (string, error)  { return "", nil }
+func (p *repo) FindAllByUserID(userID string) ([]model.FindURLByUserIDResponse, error) {
+	return nil, nil
+}
+func (p *repo) SaveAll(batch map[string]model.CreateShortDTO, userID string) error { return nil }
+func (p *repo) DeleteAll(shortURLs []string, userID string) error                  { return nil }
+func (p *repo) Collect() (*model.Statistic, error)                                 { return nil, nil }
 
 // deleterMock — реализация интерфейса deleter для тестов.
 type deleterMock struct{}
@@ -86,7 +94,7 @@ func (d *deleterMock) DeleteAsync(ids []string, userID string) error {
 func createTestHandler() *Handler {
 	cfg := config.Create()
 	shortener := service.CreateShortener(inmemory.NewInMemoryRepository(cfg), cfg.BaseShortURL)
-	return CreateHandler(shortener, &pingCheckerMock{}, cfg)
+	return CreateHandler(shortener, &repo{}, cfg)
 }
 
 // ExampleCreateWithBatch демонстрирует использование эндпоинта /api/shorten/Batch.
