@@ -19,6 +19,8 @@ import (
 const (
 	// ServerAddressFlag - флаг для адреса сервера (-a).
 	ServerAddressFlag = "a"
+	// ServerGRCPAddressFlag - флаг для адреса GRCP сервера (-ag).
+	ServerGRPCAddressFlag = "ag"
 	// BaseShortURLFlag - флаг для базового URL сокращенных ссылок (-b).
 	BaseShortURLFlag = "b"
 	// LoggingLevelFlag - флаг для уровня логирования (-l).
@@ -47,6 +49,8 @@ const (
 type Config struct {
 	// ServerAddress - сетевой адрес и порт для запуска сервера (флаг -a, env SERVER_ADDRESS).
 	ServerAddress string `env:"SERVER_ADDRESS" json:"server_address"`
+	// ServerGRPCAddress - сетевой адрес и порт для запуска сервера (флаг -ag, env SERVER_GRCP_ADDRESS).
+	ServerGRPCAddress string `env:"SERVER_GRCP_ADDRESS" json:"server_grpc_address"`
 	// BaseShortURL - базовый URL для формирования сокращенных ссылок (флаг -b, env BASE_URL).
 	BaseShortURL string `env:"BASE_URL" json:"base_url"`
 	// LoggingLevel - уровень логирования (флаг -l, env LOGGING_LEVEL).
@@ -69,13 +73,14 @@ type Config struct {
 // Использование указателей позволяет отличить отсутствующее в JSON поле от поля с нулевым значением
 // (например, пустой строки или false).
 type JSONConfig struct {
-	ServerAddress   *string `json:"server_address"`
-	BaseShortURL    *string `json:"base_url"`
-	StorageFilePath *string `json:"file_storage_path"`
-	DataSourceName  *string `json:"database_dsn"`
-	EnableHTTPS     *bool   `json:"enable_https"`
-	TrustedSubnet   *string `json:"trusted_subnet"`
-	EnableGRPC      *bool   `json:"enable_grpc"`
+	ServerAddress     *string `json:"server_address"`
+	ServerGRCPAddress *string `json:"server_grpc_address"`
+	BaseShortURL      *string `json:"base_url"`
+	StorageFilePath   *string `json:"file_storage_path"`
+	DataSourceName    *string `json:"database_dsn"`
+	EnableHTTPS       *bool   `json:"enable_https"`
+	TrustedSubnet     *string `json:"trusted_subnet"`
+	EnableGRPC        *bool   `json:"enable_grpc"`
 }
 
 var (
@@ -125,15 +130,16 @@ func Create() *Config {
 // defaultConfig создает новый экземпляр Config со значениями по умолчанию.
 func defaultConfig() *Config {
 	return &Config{
-		ServerAddress:   "localhost:8080",
-		BaseShortURL:    "http://localhost:8080",
-		LoggingLevel:    "INFO",
-		StorageFilePath: "./storage.txt",
-		DataSourceName:  "",
-		AuthKey:         "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8",
-		EnableHTTPS:     false,
-		EnableGRPC:      false,
-		TrustedSubnet:   "",
+		ServerAddress:     "localhost:8080",
+		ServerGRPCAddress: "localhost:8090",
+		BaseShortURL:      "http://localhost:8080",
+		LoggingLevel:      "INFO",
+		StorageFilePath:   "./storage.txt",
+		DataSourceName:    "",
+		AuthKey:           "dd109d0b86dc6a06584a835538768c6a2ceb588560755c7f7b90c0bf774237c8",
+		EnableHTTPS:       false,
+		EnableGRPC:        true,
+		TrustedSubnet:     "",
 	}
 }
 
@@ -175,6 +181,9 @@ func (c *Config) applyJSONConfig(path string) {
 	if jsonCfg.ServerAddress != nil {
 		c.ServerAddress = *jsonCfg.ServerAddress
 	}
+	if jsonCfg.ServerGRCPAddress != nil {
+		c.ServerGRPCAddress = *jsonCfg.ServerGRCPAddress
+	}
 	if jsonCfg.BaseShortURL != nil {
 		c.BaseShortURL = *jsonCfg.BaseShortURL
 	}
@@ -200,6 +209,7 @@ func (c *Config) applyJSONConfig(path string) {
 // Это обеспечивает правильный порядок приоритетов при вызове flag.Parse().
 func defineGlobalFlags() {
 	flag.StringVar(&cfg.ServerAddress, ServerAddressFlag, cfg.ServerAddress, "Address of the server (ex: localhost:8080)")
+	flag.StringVar(&cfg.ServerGRPCAddress, ServerGRPCAddressFlag, cfg.ServerAddress, "Address of the GRCP server (ex: localhost:8090)")
 	flag.StringVar(&cfg.BaseShortURL, BaseShortURLFlag, cfg.BaseShortURL, "Base URL for short links (ex: http://localhost:8080)")
 	flag.StringVar(&cfg.StorageFilePath, StorageFilePathFlag, cfg.StorageFilePath, "Path to the storage file")
 	flag.StringVar(&cfg.DataSourceName, DataSourceNameFlag, cfg.DataSourceName, "Data Source Name for PostgreSQL (ex: postgres://user:pass@host:port/db)")
